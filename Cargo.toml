@@ -1,5 +1,5 @@
 [package]
-name = "async-spawn"
+name = "async-spawner"
 version = "1.0.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
