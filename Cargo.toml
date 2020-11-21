@@ -1,0 +1,12 @@
+[package]
+name = "async-spawn"
+version = "0.1.0"
+authors = ["David Craven <david@craven.ch>"]
+edition = "2018"
+
+[dependencies]
+parking_lot = "0.11.1"
+
+[dev-dependencies]
+async-std = { version = "1.7.0", features = ["attributes"] }
+tokio = { version = "0.3.4", features = ["macros", "rt-multi-thread"] }
