@@ -5,7 +5,7 @@ authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "executor independent task spawner"
-repository = "https://github.com/dvc94ch/async-spawn"
+repository = "https://github.com/dvc94ch/async-spawner"
 
 [dependencies]
 parking_lot = "0.11.1"
