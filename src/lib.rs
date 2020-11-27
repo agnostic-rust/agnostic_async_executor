@@ -3,8 +3,8 @@ use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 use futures::channel::oneshot;
+use futures::future::FutureExt;
 use once_cell::sync::OnceCell;
-use std::sync::{Arc, Mutex};
 
 pub type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
@@ -61,15 +61,12 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    let lock = Arc::new(Mutex::new(None));
-    let lock2 = lock.clone();
+    let (tx, rx) = oneshot::channel();
     executor().block_on(Box::pin(async move {
         let res = future.await;
-        let mut lock = lock2.lock().unwrap();
-        *lock = Some(res);
+        tx.send(res).ok();
     }));
-    let mut res = lock.lock().unwrap();
-    res.take().unwrap()
+    rx.now_or_never().unwrap().unwrap()
 }
 
 pub struct JoinHandle<T> {
