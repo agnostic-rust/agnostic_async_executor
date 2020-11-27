@@ -1,4 +1,86 @@
-/// Executor agnostic task spawning
+//! Executor agnostic task spawning
+//!
+//! ```rust
+//! # use core::future::Future;
+//! # use core::pin::Pin;
+//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+//! #[async_std::main]
+//! async fn main() {
+//!     struct AsyncStd;
+//!     impl async_spawner::Executor for AsyncStd {
+//!         fn block_on(&self, future: BoxedFuture) {
+//!             async_std::task::block_on(future);
+//!         }
+//!
+//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn(future))
+//!         }
+//!
+//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn_blocking(task))
+//!         }
+//!
+//!         fn spawn_local(
+//!             &self,
+//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+//!         ) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn_local(future))
+//!         }
+//!     }
+//!
+//!     async_spawner::register_executor(Box::new(AsyncStd));
+//!     let res = async_spawner::spawn(async {
+//!         println!("executor agnostic spawning");
+//!         1
+//!     })
+//!     .await;
+//!     assert_eq!(res, 1);
+//! }
+//! ```
+//!
+//! ```rust
+//! # use core::future::Future;
+//! # use core::pin::Pin;
+//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+//! #[tokio::main]
+//! async fn main() {
+//!     struct Tokio;
+//!     impl async_spawner::Executor for Tokio {
+//!         fn block_on(&self, future: BoxedFuture) {
+//!             tokio::runtime::Builder::new_multi_thread()
+//!                 .build()
+//!                 .unwrap()
+//!                 .block_on(future);
+//!         }
+//!
+//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+//!             Box::pin(async { tokio::task::spawn(future).await.unwrap() })
+//!         }
+//!
+//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+//!             Box::pin(async { tokio::task::spawn_blocking(task).await.unwrap() })
+//!         }
+//!
+//!         fn spawn_local(
+//!             &self,
+//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+//!         ) -> BoxedFuture {
+//!             let handle = tokio::task::spawn_local(future);
+//!             Box::pin(async { handle.await.unwrap() })
+//!         }
+//!     }
+//!
+//!     async_spawner::register_executor(Box::new(Tokio));
+//!     let res = async_spawner::spawn(async {
+//!         println!("executor agnostic spawning");
+//!         1
+//!     })
+//!     .await;
+//!     assert_eq!(res, 1);
+//! }
+//! ```
+#![deny(missing_docs)]
+#![deny(warnings)]
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
@@ -6,7 +88,7 @@ use futures::channel::oneshot;
 use futures::future::FutureExt;
 use once_cell::sync::OnceCell;
 
-pub type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
+type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 /// Trait abstracting over an executor.
 pub trait Executor: Send + Sync {
@@ -41,16 +123,19 @@ impl core::fmt::Display for ExecutorRegistered {
 
 impl std::error::Error for ExecutorRegistered {}
 
+/// Tries registering an executor.
 pub fn try_register_executor(executor: Box<dyn Executor>) -> Result<(), ExecutorRegistered> {
     EXECUTOR.set(executor).map_err(|_| ExecutorRegistered)
 }
 
+/// Register an executor. Panics if an executor was already registered.
 pub fn register_executor(executor: Box<dyn Executor>) {
     try_register_executor(executor).unwrap();
 }
 
-pub fn executor() -> &'static Box<dyn Executor> {
-    EXECUTOR
+/// Returns the registered executor.
+pub fn executor() -> &'static dyn Executor {
+    &**EXECUTOR
         .get()
         .expect("async_spawner: no executor registered")
 }
@@ -69,6 +154,7 @@ where
     rx.now_or_never().unwrap().unwrap()
 }
 
+/// Executor agnostic join handle.
 pub struct JoinHandle<T> {
     handle: BoxedFuture,
     rx: oneshot::Receiver<T>,
