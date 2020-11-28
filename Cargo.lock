@@ -82,6 +82,7 @@ name = "async-spawner"
 version = "2.0.0"
 dependencies = [
  "async-std",
+ "bumpalo",
  "futures",
  "once_cell",
  "tokio",
