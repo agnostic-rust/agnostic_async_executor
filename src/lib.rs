@@ -1,34 +1,30 @@
 //! Executor agnostic task spawning
 //!
 //! ```rust
-//! # #[macro_use] extern crate async_spawner;
-//! # use async_spawner::{Bump, BumpBox, BumpFuture};
 //! # use core::future::Future;
 //! # use core::pin::Pin;
+//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 //! #[async_std::main]
 //! async fn main() {
 //!     struct AsyncStd;
 //!     impl async_spawner::Executor for AsyncStd {
-//!         fn block_on(&self, future: Pin<&mut (dyn Future<Output = ()> + Send + 'static)>) {
+//!         fn block_on(&self, future: BoxedFuture) {
 //!             async_std::task::block_on(future);
 //!         }
 //!
-//!         fn spawn(&self, bump: &Bump, future: BumpFuture) -> BumpFuture {
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async_std::task::spawn(future), bump)
-//!             )
+//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn(future))
 //!         }
 //!
-//!         fn spawn_blocking(&self, bump: &Bump, task: Box<dyn FnOnce() + Send>) -> BumpFuture {
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async_std::task::spawn_blocking(task), bump)
-//!             )
+//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn_blocking(task))
 //!         }
 //!
-//!         fn spawn_local(&self, bump: &Bump, future: Pin<BumpBox<'static, dyn Future<Output = ()>>>) -> BumpFuture {
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async_std::task::spawn_local(future), bump)
-//!             )
+//!         fn spawn_local(
+//!             &self,
+//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+//!         ) -> BoxedFuture {
+//!             Box::pin(async_std::task::spawn_local(future))
 //!         }
 //!     }
 //!
@@ -43,38 +39,34 @@
 //! ```
 //!
 //! ```rust
-//! # #[macro_use] extern crate async_spawner;
-//! # use async_spawner::{Bump, BumpBox, BumpFuture};
 //! # use core::future::Future;
 //! # use core::pin::Pin;
+//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 //! #[tokio::main]
 //! async fn main() {
 //!     struct Tokio;
 //!     impl async_spawner::Executor for Tokio {
-//!         fn block_on(&self, future: Pin<&mut (dyn Future<Output = ()> + Send + 'static)>) {
+//!         fn block_on(&self, future: BoxedFuture) {
 //!             tokio::runtime::Builder::new_multi_thread()
 //!                 .build()
 //!                 .unwrap()
 //!                 .block_on(future);
 //!         }
 //!
-//!         fn spawn(&self, bump: &Bump, future: BumpFuture) -> BumpFuture {
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async { tokio::task::spawn(future).await.unwrap() }, bump)
-//!             )
+//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+//!             Box::pin(async { tokio::task::spawn(future).await.unwrap() })
 //!         }
 //!
-//!         fn spawn_blocking(&self, bump: &Bump, task: Box<dyn FnOnce() + Send>) -> BumpFuture {
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async { tokio::task::spawn_blocking(task).await.unwrap() }, bump)
-//!             )
+//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+//!             Box::pin(async { tokio::task::spawn_blocking(task).await.unwrap() })
 //!         }
 //!
-//!         fn spawn_local(&self, bump: &Bump, future: Pin<BumpBox<'static, dyn Future<Output = ()>>>) -> BumpFuture {
+//!         fn spawn_local(
+//!             &self,
+//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+//!         ) -> BoxedFuture {
 //!             let handle = tokio::task::spawn_local(future);
-//!             async_spawner::coerce_bump_box_pin!(
-//!                 BumpBox::new_in(async { handle.await.unwrap() }, bump)
-//!             )
+//!             Box::pin(async { handle.await.unwrap() })
 //!         }
 //!     }
 //!
@@ -89,58 +81,32 @@
 //! ```
 #![deny(missing_docs)]
 #![deny(warnings)]
-pub use bumpalo::boxed::Box as BumpBox;
-pub use bumpalo::Bump;
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
+use futures::channel::oneshot;
+use futures::future::FutureExt;
 use once_cell::sync::OnceCell;
-use std::sync::Mutex;
 
-/// Type alias for a bump allocated future.
-pub type BumpFuture = Pin<BumpBox<'static, dyn Future<Output = ()> + Send>>;
-
-/// Coerces a `BumpBox<'a, impl T>` to `BumpBox<'static, dyn T>`.
-#[macro_export]
-macro_rules! coerce_bump_box {
-    ($b:expr) => {
-        #[allow(unused_unsafe)]
-        unsafe {
-            let coerce = Box::from_raw(BumpBox::into_raw($b)) as Box<_>;
-            BumpBox::from_raw(Box::into_raw(coerce))
-        }
-    };
-}
-
-/// Coerces and pins a `BumpBox<'a, impl T>` as a `Pin<BumpBox<'static, dyn T>>`.
-#[macro_export]
-macro_rules! coerce_bump_box_pin {
-    ($b:expr) => {
-        unsafe { Pin::new_unchecked(coerce_bump_box!($b)) }
-    };
-}
+type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 /// Trait abstracting over an executor.
 pub trait Executor: Send + Sync {
     /// Blocks until the future has finished.
-    fn block_on(&self, future: Pin<&mut (dyn Future<Output = ()> + Send + 'static)>);
+    fn block_on(&self, future: BoxedFuture);
 
     /// Spawns an asynchronous task using the underlying executor.
-    fn spawn(&self, bump: &Bump, future: BumpFuture) -> BumpFuture;
+    fn spawn(&self, future: BoxedFuture) -> BoxedFuture;
 
     /// Runs the provided closure on a thread, which can execute blocking tasks asynchronously.
-    fn spawn_blocking(&self, bump: &Bump, task: Box<dyn FnOnce() + Send>) -> BumpFuture;
+    fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture;
 
     /// Spawns a future that doesn't implement [Send].
     ///
     /// The spawned future will be executed on the same thread that called `spawn_local`.
     ///
     /// [Send]: https://doc.rust-lang.org/std/marker/trait.Send.html
-    fn spawn_local(
-        &self,
-        bump: &Bump,
-        future: Pin<BumpBox<'static, dyn Future<Output = ()>>>,
-    ) -> BumpFuture;
+    fn spawn_local(&self, future: Pin<Box<dyn Future<Output = ()> + 'static>>) -> BoxedFuture;
 }
 
 static EXECUTOR: OnceCell<Box<dyn Executor>> = OnceCell::new();
@@ -180,25 +146,18 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    let cell = Mutex::new(None);
-    let cell_ref: &'static Mutex<Option<T>> = unsafe { &*(&cell as *const _) };
-    let future = async move {
+    let (tx, rx) = oneshot::channel();
+    executor().block_on(Box::pin(async move {
         let res = future.await;
-        let mut cell = cell_ref.lock().unwrap();
-        *cell = Some(res);
-    };
-    futures::pin_mut!(future);
-    executor().block_on(future);
-    let mut cell = cell.lock().unwrap();
-    cell.take().unwrap()
+        tx.send(res).ok();
+    }));
+    rx.now_or_never().unwrap().unwrap()
 }
 
 /// Executor agnostic join handle.
-pub struct JoinHandle<T: 'static> {
-    handle: BumpFuture,
-    res: BumpBox<'static, Mutex<Option<T>>>,
-    #[allow(unused)]
-    bump: Bump,
+pub struct JoinHandle<T> {
+    handle: BoxedFuture,
+    rx: oneshot::Receiver<T>,
 }
 
 impl<T> Future for JoinHandle<T> {
@@ -206,8 +165,11 @@ impl<T> Future for JoinHandle<T> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         if let Poll::Ready(()) = Pin::new(&mut self.handle).poll(cx) {
-            let mut res = self.res.lock().unwrap();
-            Poll::Ready(res.take().unwrap())
+            if let Poll::Ready(Ok(res)) = Pin::new(&mut self.rx).poll(cx) {
+                Poll::Ready(res)
+            } else {
+                panic!("task paniced");
+            }
         } else {
             Poll::Pending
         }
@@ -220,20 +182,12 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    let bump = Bump::new();
-    let bump_ref = unsafe { &*(&bump as *const _) };
-    let res = BumpBox::new_in(Mutex::new(None), bump_ref);
-    let res_ref: &'static Mutex<Option<T>> = unsafe { &*(&*res as *const _) };
-    let future = BumpBox::new_in(
-        async move {
-            let res = future.await;
-            let mut cell = res_ref.lock().unwrap();
-            *cell = Some(res);
-        },
-        &bump,
-    );
-    let handle = executor().spawn(&bump, coerce_bump_box_pin!(future));
-    JoinHandle { bump, handle, res }
+    let (tx, rx) = oneshot::channel();
+    let handle = executor().spawn(Box::pin(async move {
+        let res = future.await;
+        tx.send(res).ok();
+    }));
+    JoinHandle { handle, rx }
 }
 
 /// Runs the provided closure on a thread, which can execute blocking tasks asynchronously.
@@ -242,17 +196,12 @@ where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
-    let bump = Bump::new();
-    let bump_ref = unsafe { &*(&bump as *const _) };
-    let res = BumpBox::new_in(Mutex::new(None), bump_ref);
-    let res_ref: &'static Mutex<Option<T>> = unsafe { &*(&*res as *const _) };
-    let task = Box::new(move || {
+    let (tx, rx) = oneshot::channel();
+    let handle = executor().spawn_blocking(Box::new(move || {
         let res = task();
-        let mut cell = res_ref.lock().unwrap();
-        *cell = Some(res);
-    });
-    let handle = executor().spawn_blocking(&bump, task);
-    JoinHandle { bump, handle, res }
+        tx.send(res).ok();
+    }));
+    JoinHandle { handle, rx }
 }
 
 /// Spawns a future that doesn't implement [Send].
@@ -265,20 +214,12 @@ where
     F: Future<Output = T> + 'static,
     T: Send + 'static,
 {
-    let bump = Bump::new();
-    let bump_ref = unsafe { &*(&bump as *const _) };
-    let res = BumpBox::new_in(Mutex::new(None), bump_ref);
-    let res_ref: &'static Mutex<Option<T>> = unsafe { &*(&*res as *const _) };
-    let future = BumpBox::new_in(
-        async move {
-            let res = future.await;
-            let mut cell = res_ref.lock().unwrap();
-            *cell = Some(res);
-        },
-        &bump,
-    );
-    let handle = executor().spawn_local(&bump, coerce_bump_box_pin!(future));
-    JoinHandle { bump, handle, res }
+    let (tx, rx) = oneshot::channel();
+    let handle = executor().spawn_local(Box::pin(async move {
+        let res = future.await;
+        tx.send(res).ok();
+    }));
+    JoinHandle { handle, rx }
 }
 
 #[cfg(test)]
@@ -291,24 +232,23 @@ mod tests {
         struct AsyncStd;
 
         impl Executor for AsyncStd {
-            fn block_on(&self, future: Pin<&mut (dyn Future<Output = ()> + Send + 'static)>) {
+            fn block_on(&self, future: BoxedFuture) {
                 async_std::task::block_on(future);
             }
 
-            fn spawn(&self, bump: &Bump, future: BumpFuture) -> BumpFuture {
-                coerce_bump_box_pin!(BumpBox::new_in(async_std::task::spawn(future), bump))
+            fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+                Box::pin(async_std::task::spawn(future))
             }
 
-            fn spawn_blocking(&self, bump: &Bump, task: Box<dyn FnOnce() + Send>) -> BumpFuture {
-                coerce_bump_box_pin!(BumpBox::new_in(async_std::task::spawn_blocking(task), bump))
+            fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+                Box::pin(async_std::task::spawn_blocking(task))
             }
 
             fn spawn_local(
                 &self,
-                bump: &Bump,
-                future: Pin<BumpBox<'static, dyn Future<Output = ()>>>,
-            ) -> BumpFuture {
-                coerce_bump_box_pin!(BumpBox::new_in(async_std::task::spawn_local(future), bump))
+                future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+            ) -> BoxedFuture {
+                Box::pin(async_std::task::spawn_local(future))
             }
         }
 
@@ -344,34 +284,27 @@ mod tests {
         struct Tokio;
 
         impl Executor for Tokio {
-            fn block_on(&self, future: Pin<&mut (dyn Future<Output = ()> + Send + 'static)>) {
+            fn block_on(&self, future: BoxedFuture) {
                 tokio::runtime::Builder::new_multi_thread()
                     .build()
                     .unwrap()
                     .block_on(future);
             }
 
-            fn spawn(&self, bump: &Bump, future: BumpFuture) -> BumpFuture {
-                coerce_bump_box_pin!(BumpBox::new_in(
-                    async move { tokio::task::spawn(future).await.unwrap() },
-                    bump,
-                ))
+            fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
+                Box::pin(async { tokio::task::spawn(future).await.unwrap() })
             }
 
-            fn spawn_blocking(&self, bump: &Bump, task: Box<dyn FnOnce() + Send>) -> BumpFuture {
-                coerce_bump_box_pin!(BumpBox::new_in(
-                    async { tokio::task::spawn_blocking(task).await.unwrap() },
-                    bump,
-                ))
+            fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
+                Box::pin(async { tokio::task::spawn_blocking(task).await.unwrap() })
             }
 
             fn spawn_local(
                 &self,
-                bump: &Bump,
-                future: Pin<BumpBox<'static, dyn Future<Output = ()>>>,
-            ) -> BumpFuture {
+                future: Pin<Box<dyn Future<Output = ()> + 'static>>,
+            ) -> BoxedFuture {
                 let handle = tokio::task::spawn_local(future);
-                coerce_bump_box_pin!(BumpBox::new_in(async { handle.await.unwrap() }, bump))
+                Box::pin(async { handle.await.unwrap() })
             }
         }
 
