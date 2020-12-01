@@ -1,6 +1,6 @@
 [package]
 name = "async-spawner"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
