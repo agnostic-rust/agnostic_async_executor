@@ -1,34 +1,9 @@
 //! Executor agnostic task spawning
 //!
 //! ```rust
-//! # use core::future::Future;
-//! # use core::pin::Pin;
-//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 //! #[async_std::main]
 //! async fn main() {
-//!     struct AsyncStd;
-//!     impl async_spawner::Executor for AsyncStd {
-//!         fn block_on(&self, future: BoxedFuture) {
-//!             async_std::task::block_on(future);
-//!         }
-//!
-//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
-//!             Box::pin(async_std::task::spawn(future))
-//!         }
-//!
-//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
-//!             Box::pin(async_std::task::spawn_blocking(task))
-//!         }
-//!
-//!         fn spawn_local(
-//!             &self,
-//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
-//!         ) -> BoxedFuture {
-//!             Box::pin(async_std::task::spawn_local(future))
-//!         }
-//!     }
-//!
-//!     async_spawner::register_executor(Box::new(AsyncStd));
+//!     async_spawner::async_std::register_executor();
 //!     let res = async_spawner::spawn(async {
 //!         println!("executor agnostic spawning");
 //!         1
@@ -39,38 +14,9 @@
 //! ```
 //!
 //! ```rust
-//! # use core::future::Future;
-//! # use core::pin::Pin;
-//! # type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 //! #[tokio::main]
 //! async fn main() {
-//!     struct Tokio;
-//!     impl async_spawner::Executor for Tokio {
-//!         fn block_on(&self, future: BoxedFuture) {
-//!             tokio::runtime::Builder::new_multi_thread()
-//!                 .build()
-//!                 .unwrap()
-//!                 .block_on(future);
-//!         }
-//!
-//!         fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
-//!             Box::pin(async { tokio::task::spawn(future).await.unwrap() })
-//!         }
-//!
-//!         fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
-//!             Box::pin(async { tokio::task::spawn_blocking(task).await.unwrap() })
-//!         }
-//!
-//!         fn spawn_local(
-//!             &self,
-//!             future: Pin<Box<dyn Future<Output = ()> + 'static>>,
-//!         ) -> BoxedFuture {
-//!             let handle = tokio::task::spawn_local(future);
-//!             Box::pin(async { handle.await.unwrap() })
-//!         }
-//!     }
-//!
-//!     async_spawner::register_executor(Box::new(Tokio));
+//!     async_spawner::tokio::register_executor();
 //!     let res = async_spawner::spawn(async {
 //!         println!("executor agnostic spawning");
 //!         1
@@ -84,9 +30,14 @@
 use core::future::Future;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use futures::channel::oneshot;
-use futures::future::FutureExt;
+use futures_util::future::FutureExt;
+use futures_util::stream::{Stream, StreamExt};
 use once_cell::sync::OnceCell;
+
+#[cfg(feature = "async-std")]
+pub mod async_std;
+#[cfg(feature = "tokio")]
+pub mod tokio;
 
 type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
@@ -146,18 +97,18 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    let (tx, rx) = oneshot::channel();
+    let (tx, mut rx) = async_channel::bounded(1);
     executor().block_on(Box::pin(async move {
         let res = future.await;
-        tx.send(res).ok();
+        tx.try_send(res).ok();
     }));
-    rx.now_or_never().unwrap().unwrap()
+    rx.next().now_or_never().unwrap().unwrap()
 }
 
 /// Executor agnostic join handle.
 pub struct JoinHandle<T> {
     handle: BoxedFuture,
-    rx: oneshot::Receiver<T>,
+    rx: async_channel::Receiver<T>,
 }
 
 impl<T> Future for JoinHandle<T> {
@@ -165,7 +116,7 @@ impl<T> Future for JoinHandle<T> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         if let Poll::Ready(()) = Pin::new(&mut self.handle).poll(cx) {
-            if let Poll::Ready(Ok(res)) = Pin::new(&mut self.rx).poll(cx) {
+            if let Poll::Ready(Some(res)) = Pin::new(&mut self.rx).poll_next(cx) {
                 Poll::Ready(res)
             } else {
                 panic!("task paniced");
@@ -182,10 +133,10 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    let (tx, rx) = oneshot::channel();
+    let (tx, rx) = async_channel::bounded(1);
     let handle = executor().spawn(Box::pin(async move {
         let res = future.await;
-        tx.send(res).ok();
+        tx.try_send(res).ok();
     }));
     JoinHandle { handle, rx }
 }
@@ -196,10 +147,10 @@ where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
 {
-    let (tx, rx) = oneshot::channel();
+    let (tx, rx) = async_channel::bounded(1);
     let handle = executor().spawn_blocking(Box::new(move || {
         let res = task();
-        tx.send(res).ok();
+        tx.try_send(res).ok();
     }));
     JoinHandle { handle, rx }
 }
@@ -214,130 +165,10 @@ where
     F: Future<Output = T> + 'static,
     T: Send + 'static,
 {
-    let (tx, rx) = oneshot::channel();
+    let (tx, rx) = async_channel::bounded(1);
     let handle = executor().spawn_local(Box::pin(async move {
         let res = future.await;
-        tx.send(res).ok();
+        tx.try_send(res).ok();
     }));
     JoinHandle { handle, rx }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[async_std::test]
-    #[ignore]
-    async fn test_async_std() {
-        struct AsyncStd;
-
-        impl Executor for AsyncStd {
-            fn block_on(&self, future: BoxedFuture) {
-                async_std::task::block_on(future);
-            }
-
-            fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
-                Box::pin(async_std::task::spawn(future))
-            }
-
-            fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
-                Box::pin(async_std::task::spawn_blocking(task))
-            }
-
-            fn spawn_local(
-                &self,
-                future: Pin<Box<dyn Future<Output = ()> + 'static>>,
-            ) -> BoxedFuture {
-                Box::pin(async_std::task::spawn_local(future))
-            }
-        }
-
-        try_register_executor(Box::new(AsyncStd)).ok();
-        let res = spawn(async {
-            println!("spaw on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = spawn_blocking(|| {
-            println!("spawn_blocking on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = spawn_local(async {
-            println!("spaw_local on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = block_on(async {
-            println!("block_on on async_std");
-            1
-        });
-        assert_eq!(res, 1);
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_tokio() {
-        struct Tokio;
-
-        impl Executor for Tokio {
-            fn block_on(&self, future: BoxedFuture) {
-                tokio::runtime::Builder::new_multi_thread()
-                    .build()
-                    .unwrap()
-                    .block_on(future);
-            }
-
-            fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
-                Box::pin(async { tokio::task::spawn(future).await.unwrap() })
-            }
-
-            fn spawn_blocking(&self, task: Box<dyn FnOnce() + Send>) -> BoxedFuture {
-                Box::pin(async { tokio::task::spawn_blocking(task).await.unwrap() })
-            }
-
-            fn spawn_local(
-                &self,
-                future: Pin<Box<dyn Future<Output = ()> + 'static>>,
-            ) -> BoxedFuture {
-                let handle = tokio::task::spawn_local(future);
-                Box::pin(async { handle.await.unwrap() })
-            }
-        }
-
-        try_register_executor(Box::new(Tokio)).ok();
-        let res = spawn(async {
-            println!("spaw on tokio");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = spawn_blocking(|| {
-            println!("spawn_blocking on tokio");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        tokio::task::LocalSet::new()
-            .run_until(async {
-                let res = spawn_local(async {
-                    println!("spaw_local on tokio");
-                    1
-                })
-                .await;
-                assert_eq!(res, 1);
-            })
-            .await;
-        spawn_blocking(|| {
-            let res = block_on(async {
-                println!("block_on on tokio");
-                1
-            });
-            assert_eq!(res, 1);
-        })
-        .await;
-    }
 }
