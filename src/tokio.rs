@@ -1,16 +1,18 @@
-//! Tokio executor implementation.
-use crate::{BoxedFuture, Executor, ExecutorRegistered};
+//! TODO Doc
+
+use crate::{AgnosticExecutor, BlockingError, BoxedFuture, Executor};
 use core::future::Future;
 use core::pin::Pin;
 
-struct Tokio;
+struct Tokio {}
 
 impl Executor for Tokio {
-    fn block_on(&self, future: BoxedFuture) {
-        tokio::runtime::Builder::new_multi_thread()
-            .build()
-            .unwrap()
-            .block_on(future);
+
+    fn block_on(&self, _future: BoxedFuture) -> Result<(), BlockingError> {
+        // TODO When this issue is resolved https://github.com/tokio-rs/tokio/pull/3097
+        //let handle = tokio::runtime::Handle::try_current()?;
+        //handle.block_on(future);
+        Err(BlockingError {})
     }
 
     fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
@@ -27,53 +29,8 @@ impl Executor for Tokio {
     }
 }
 
-/// Try registering `tokio`.
-pub fn try_register_executor() -> Result<(), ExecutorRegistered> {
-    crate::try_register_executor(Box::new(Tokio))
+/// TODO Doc
+pub fn tokio() -> AgnosticExecutor {
+    AgnosticExecutor::new(Box::new(Tokio {}))
 }
 
-/// Register `tokio`.
-pub fn register_executor() {
-    try_register_executor().unwrap();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore]
-    async fn test_tokio() {
-        try_register_executor().ok();
-        let res = crate::spawn(async {
-            println!("spaw on tokio");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = crate::spawn_blocking(|| {
-            println!("spawn_blocking on tokio");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        tokio::task::LocalSet::new()
-            .run_until(async {
-                let res = crate::spawn_local(async {
-                    println!("spaw_local on tokio");
-                    1
-                })
-                .await;
-                assert_eq!(res, 1);
-            })
-            .await;
-        crate::spawn_blocking(|| {
-            let res = crate::block_on(async {
-                println!("block_on on tokio");
-                1
-            });
-            assert_eq!(res, 1);
-        })
-        .await;
-    }
-}

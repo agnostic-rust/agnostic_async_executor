@@ -1,13 +1,15 @@
-//! Async std executor implementation.
-use crate::{BoxedFuture, Executor, ExecutorRegistered};
+//! TODO Doc
+
+use crate::{AgnosticExecutor, BlockingError, BoxedFuture, Executor};
 use core::future::Future;
 use core::pin::Pin;
 
 struct AsyncStd;
 
 impl Executor for AsyncStd {
-    fn block_on(&self, future: BoxedFuture) {
+    fn block_on(&self, future: BoxedFuture) -> Result<(), BlockingError> {
         async_std::task::block_on(future);
+        Ok(())
     }
 
     fn spawn(&self, future: BoxedFuture) -> BoxedFuture {
@@ -23,46 +25,7 @@ impl Executor for AsyncStd {
     }
 }
 
-/// Try registering `async-std`.
-pub fn try_register_executor() -> Result<(), ExecutorRegistered> {
-    crate::try_register_executor(Box::new(AsyncStd))
-}
-
-/// Register `async-std`.
-pub fn register_executor() {
-    try_register_executor().unwrap();
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[async_std::test]
-    #[ignore]
-    async fn test_async_std() {
-        try_register_executor().ok();
-        let res = crate::spawn(async {
-            println!("spaw on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = crate::spawn_blocking(|| {
-            println!("spawn_blocking on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = crate::spawn_local(async {
-            println!("spaw_local on async-std");
-            1
-        })
-        .await;
-        assert_eq!(res, 1);
-        let res = crate::block_on(async {
-            println!("block_on on async_std");
-            1
-        });
-        assert_eq!(res, 1);
-    }
+/// TODO Doc
+pub fn async_std() -> AgnosticExecutor {
+    AgnosticExecutor::new(Box::new(AsyncStd))
 }
