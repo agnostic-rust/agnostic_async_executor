@@ -70,7 +70,7 @@ pub enum ExecutorType {
 }
 
 /// TODO Doc
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct AgnosticExecutor {
     // TODO add extra config like ideal number of thread (1, N, auto, ...)
     // TODO At least tokio needs special config to run time functions 
@@ -142,6 +142,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
+                use futures::task::SpawnExt;
                 // TODO Decide how to handle the error
                 JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(future).unwrap())
             },
@@ -176,6 +177,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
+                use futures::task::SpawnExt;
                 // TODO Decide how to handle the error
                 JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(async { task() }).unwrap())
             },
@@ -220,6 +222,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
+                use futures::task::SpawnExt;
                 let mut local = futures::executor::LocalPool::new();
                 let res = local.run_until(future);
                 // TODO Decide how to handle the error

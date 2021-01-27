@@ -11,7 +11,7 @@ mod async_std_tests {
     #[wasm_bindgen_test]
     async fn test_spawn() {
         let exec = wasm_bindgen_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn(async {
                 1i32
             }).await;
@@ -22,7 +22,7 @@ mod async_std_tests {
     #[wasm_bindgen_test]
     async fn test_spawn_blocking() {
         let exec = wasm_bindgen_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn_blocking(|| {
                 1i32
             }).await;
@@ -33,7 +33,7 @@ mod async_std_tests {
     #[wasm_bindgen_test]
     async fn test_spawn_local() {
         let exec = wasm_bindgen_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn_local(async {
                 1i32
             })

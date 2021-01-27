@@ -7,7 +7,7 @@ mod tokio_tests {
     #[test]
     fn test_spawn() {
         let exec = tokio_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn(async {
                 1i32
             }).await;
@@ -18,7 +18,7 @@ mod tokio_tests {
     #[test]
     fn test_spawn_blocking() {
         let exec = tokio_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn_blocking(|| {
                 1i32
             }).await;
@@ -29,7 +29,7 @@ mod tokio_tests {
     #[test]
     fn test_spawn_local() {
         let exec = tokio_executor();
-        exec.start(async move {
+        exec.clone().start(async move {
             let res = exec.spawn_local(async {
                 1i32
             })
