@@ -1,12 +1,12 @@
-#![ cfg(feature = "async_std_executor") ]
+#![ cfg(feature = "futures_executor") ]
 
 #[cfg(test)]
-mod async_std_tests {
-    use agnostic_async_executor::async_std_executor;
+mod futures_tests {
+    use agnostic_async_executor::futures_executor;
 
     #[test]
     fn test_spawn() {
-        let exec = async_std_executor();
+        let exec = futures_executor();
         exec.clone().start(async move {
             let res = exec.spawn(async {
                 1i32
@@ -17,7 +17,7 @@ mod async_std_tests {
 
     #[test]
     fn test_spawn_blocking() {
-        let exec = async_std_executor();
+        let exec = futures_executor();
         exec.clone().start(async move {
             let res = exec.spawn_blocking(|| {
                 1i32
@@ -28,7 +28,7 @@ mod async_std_tests {
 
     #[test]
     fn test_spawn_local() {
-        let exec = async_std_executor();
+        let exec = futures_executor();
         exec.clone().start(async move {
             let res = exec.spawn_local(async {
                 1i32

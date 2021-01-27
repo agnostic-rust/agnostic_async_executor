@@ -62,32 +62,40 @@ pub enum ExecutorType {
     #[cfg(feature = "smol_executor")]
     Smol,
     /// TODO Doc
+    #[cfg(feature = "futures_executor")]
+    Futures,
+    /// TODO Doc
     #[cfg(feature = "wasm_bindgen_executor")]
     WasmBindgen
 }
 
 /// TODO Doc
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct AgnosticExecutor {
     // TODO add extra config like ideal number of thread (1, N, auto, ...)
     // TODO At least tokio needs special config to run time functions 
-    executor: ExecutorType
+    exec_type: ExecutorType,
+    #[cfg(feature = "futures_executor")]
+    executor: futures::executor::ThreadPool
 }
 
 impl AgnosticExecutor {
 
     /// TODO Doc
-    pub fn new(executor: ExecutorType) -> AgnosticExecutor {
+    pub fn new(exec_type: ExecutorType) -> AgnosticExecutor {
         AgnosticExecutor {
-            executor
+            exec_type,
+            #[cfg(feature = "futures_executor")]
+            executor: futures::executor::ThreadPool::new().expect("Error creating the futures threadpool")
         }
     }
 
     /// Start the executor, if you need special configuration just start the concrete executor and don't use this function
     pub fn start<F>(&self, future: F) -> () where F: Future<Output = ()> + Send + 'static {
-        match self.executor {
+        match self.exec_type {
             #[cfg(feature = "tokio_executor")]
             ExecutorType::Tokio => {
+                // TODO Build it on new and store the handle?
                 tokio::runtime::Builder::new_multi_thread()
                     .enable_all()
                     .build()
@@ -102,6 +110,10 @@ impl AgnosticExecutor {
             ExecutorType::Smol => {
                 smol::block_on(future);
             },
+            #[cfg(feature = "futures_executor")]
+            ExecutorType::Futures => {
+                self.executor.spawn_ok(future);
+            },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
                 wasm_bindgen_futures::spawn_local(future);
@@ -115,7 +127,7 @@ impl AgnosticExecutor {
         F: Future<Output = T> + Send + 'static,
         T: Send + 'static,
     {
-        match self.executor {
+        match self.exec_type {
             #[cfg(feature = "tokio_executor")]
             ExecutorType::Tokio => {
                 JoinHandle::<T>::Tokio(tokio::task::spawn(future))
@@ -127,6 +139,11 @@ impl AgnosticExecutor {
             #[cfg(feature = "smol_executor")]
             ExecutorType::Smol => {
                 JoinHandle::<T>::Smol(smol::spawn(future))
+            },
+            #[cfg(feature = "futures_executor")]
+            ExecutorType::Futures => {
+                // TODO Decide how to handle the error
+                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(future).unwrap())
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
@@ -144,7 +161,7 @@ impl AgnosticExecutor {
         F: FnOnce() -> T + Send + 'static,
         T: Send + 'static,
     {
-        match self.executor {
+        match self.exec_type {
             #[cfg(feature = "tokio_executor")]
             ExecutorType::Tokio => {
                 JoinHandle::<T>::Tokio(tokio::task::spawn_blocking(task))
@@ -156,6 +173,11 @@ impl AgnosticExecutor {
             #[cfg(feature = "smol_executor")]
             ExecutorType::Smol => {
                 JoinHandle::<T>::Smol(smol::spawn(smol::unblock( || task() )))
+            },
+            #[cfg(feature = "futures_executor")]
+            ExecutorType::Futures => {
+                // TODO Decide how to handle the error
+                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(async { task() }).unwrap())
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
@@ -177,7 +199,7 @@ impl AgnosticExecutor {
         F: Future<Output = T> + 'static,
         T: Send + 'static,
     {
-        match self.executor {
+        match self.exec_type {
             #[cfg(feature = "tokio_executor")]
             ExecutorType::Tokio => {
                 // Tokio cannot spawn_local in all relevant cases (inside other spawns for example), using a futures LocalPool instead
@@ -195,6 +217,13 @@ impl AgnosticExecutor {
                 let task = ex.spawn(future);
                 let res = smol::block_on(ex.run(task));
                 JoinHandle::<T>::Smol(smol::spawn(async { res }))
+            },
+            #[cfg(feature = "futures_executor")]
+            ExecutorType::Futures => {
+                let mut local = futures::executor::LocalPool::new();
+                let res = local.run_until(future);
+                // TODO Decide how to handle the error
+                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(async { res }).unwrap())
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
@@ -224,6 +253,12 @@ pub fn async_std_executor() -> AgnosticExecutor {
 #[cfg(feature = "smol_executor")]
 pub fn smol_executor() -> AgnosticExecutor {
     AgnosticExecutor::new(ExecutorType::Smol)
+}
+
+/// TODO Doc
+#[cfg(feature = "futures_executor")]
+pub fn futures_executor() -> AgnosticExecutor {
+    AgnosticExecutor::new(ExecutorType::Futures)
 }
 
 /// TODO Doc
