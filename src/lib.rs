@@ -70,7 +70,7 @@ pub enum ExecutorType {
 }
 
 /// TODO Doc
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AgnosticExecutor {
     // TODO add extra config like ideal number of thread (1, N, auto, ...)
     // TODO At least tokio needs special config to run time functions 
