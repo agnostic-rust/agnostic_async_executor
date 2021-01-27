@@ -1,7 +1,8 @@
+#![ cfg(feature = "async_std_executor") ]
 
 #[cfg(test)]
 mod async_std_tests {
-    use agnostic_async_executor::async_std::async_std;
+    use agnostic_async_executor::async_std;
     use std::sync::Arc;
 
     #[async_std::test]
@@ -13,6 +14,7 @@ mod async_std_tests {
         }).await;
         assert_eq!(res, 1);
     }
+
     #[async_std::test]
     async fn test_spawn_blocking() {
         let exec = async_std();
@@ -22,6 +24,7 @@ mod async_std_tests {
         }).await;
         assert_eq!(res, 1);
     }
+
     #[async_std::test]
     async fn test_spawn_local() {
         let exec = async_std();
@@ -32,6 +35,7 @@ mod async_std_tests {
             .await;
             assert_eq!(res, 1);
     }
+
     #[async_std::test]
     async fn test_block_on() {
         let exec = Arc::new( async_std());
