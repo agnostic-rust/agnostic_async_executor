@@ -39,6 +39,4 @@ mod async_std_tests {
         assert_eq!(res, 1);
     }
 
-    // No block_on test in wasm because it will probably never work unless we get real threads
-
 }

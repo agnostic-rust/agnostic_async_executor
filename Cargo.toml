@@ -15,8 +15,7 @@ smol_executor = ["smol"]
 wasm_bindgen_executor = ["wasm-bindgen-futures"]
 
 [dependencies]
-futures-util = { version = "^0.3", default-features = false, features = ["channel"] }
-futures-channel = { version = "^0.3", default-features = false }
+futures = { version = "^0.3", default-features = false, features = ["executor"] }
 async-std = { version = "^1.9", features = ["attributes", "unstable"], optional = true }
 tokio = { version = "^1.1", features = ["macros"], optional = true }
 smol = { version = "^1.2", optional = true }
