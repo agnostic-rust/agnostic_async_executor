@@ -23,7 +23,7 @@ wasm-bindgen-futures = { version = "^0.4", optional = true }
 
 [dev-dependencies]
 # This needs to be commented to run the wasm tests, uncomment it for easier development and simple cargo test (this might change when this is fixed https://github.com/rustwasm/wasm-pack/issues/698)
-agnostic_async_executor = { path = ".", features = ["async_std_executor", "tokio_executor", "smol_executor", "futures_executor"] }
+#agnostic_async_executor = { path = ".", features = ["async_std_executor", "tokio_executor", "smol_executor", "futures_executor"] }
 
 [target.wasm32-unknown-unknown.dev-dependencies]
 agnostic_async_executor = { path = ".", features = ["wasm_bindgen_executor"] }
