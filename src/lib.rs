@@ -10,6 +10,7 @@ use core::task::{Context, Poll};
 
 // TODO Get our own macros for main, test, benchmark, ... or recommend using the upstream ones
 // TODO Provide Executor Agnostic time features
+// TODO Provide an global executor using static
 
 /// TODO Doc
 pub enum JoinHandle<T> {
@@ -135,16 +136,17 @@ impl AgnosticExecutor {
             #[cfg(feature = "async_std_executor")]
             ExecutorType::AsyncStd => {
                 JoinHandle::<T>::AsyncStd(async_std::task::spawn(future))
-            },
+            }, 
             #[cfg(feature = "smol_executor")]
             ExecutorType::Smol => {
                 JoinHandle::<T>::Smol(smol::spawn(future))
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
-                use futures::task::SpawnExt;
-                // TODO Decide how to handle the error
-                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(future).unwrap())
+                use futures::future::FutureExt;
+                let (future, handle) = future.remote_handle();
+                self.executor.spawn_ok(future);
+                JoinHandle::<T>::RemoteHandle(handle)
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
@@ -177,9 +179,10 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
-                use futures::task::SpawnExt;
-                // TODO Decide how to handle the error
-                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(async { task() }).unwrap())
+                use futures::future::FutureExt;
+                let (future, handle) = (async { task()}).remote_handle();
+                self.executor.spawn_ok(future);
+                JoinHandle::<T>::RemoteHandle(handle)
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {
@@ -222,11 +225,12 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             ExecutorType::Futures => {
-                use futures::task::SpawnExt;
+                use futures::future::FutureExt;
                 let mut local = futures::executor::LocalPool::new();
                 let res = local.run_until(future);
-                // TODO Decide how to handle the error
-                JoinHandle::<T>::RemoteHandle(self.executor.spawn_with_handle(async { res }).unwrap())
+                let (future, handle) = (async { res }).remote_handle();
+                self.executor.spawn_ok(future);
+                JoinHandle::<T>::RemoteHandle(handle)
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             ExecutorType::WasmBindgen => {

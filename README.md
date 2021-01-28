@@ -10,4 +10,4 @@ This project is licensed under either of
 
 at your option.
 
-This project was originally forked from https://github.com/dvc94ch/async-spawner from David Craven <david@craven.ch>
+This project was originally forked from https://github.com/dvc94ch/async-spawner from David Craven <david@craven.ch> but the majority of the code is new or has been rewritten.
