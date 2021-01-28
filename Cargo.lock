@@ -5,12 +5,15 @@ name = "agnostic_async_executor"
 version = "0.1.0"
 dependencies = [
  "agnostic_async_executor",
+ "async-channel",
  "async-executor",
  "async-std",
  "blocking",
  "easy-parallel",
  "futures",
  "futures-lite",
+ "num_cpus",
+ "once_cell",
  "tokio",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",

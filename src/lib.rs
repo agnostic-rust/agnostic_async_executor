@@ -59,7 +59,7 @@ enum ExecutorInner {
     #[cfg(feature = "async_std_executor")]
     AsyncStdRuntime,
     #[cfg(feature = "smol_executor")]
-    SmolRuntime(Arc<async_executor::Executor<'static>>),
+    SmolRuntime(Arc<async_executor::Executor<'static>>, usize),
     #[cfg(feature = "futures_executor")]
     FuturesRuntime(futures::executor::ThreadPool),
     #[cfg(feature = "wasm_bindgen_executor")]
@@ -173,6 +173,7 @@ impl AgnosticExecutor {
         F: Future<Output = T> + 'static,
         T: Send + 'static,
     {
+        // TODO Use a thread local to store the LocalPool/LocalExecutor https://doc.rust-lang.org/std/macro.thread_local.html
         match &self.inner {
             #[cfg(feature = "tokio_executor")]
             TokioHandle(_) => {
@@ -251,23 +252,16 @@ impl AgnosticExecutorBuilder {
         }
     }
 
-    /// TODO Doc
+    /// TODO Doc If num_threads is not provided default to the number of logical cores
     #[cfg(feature = "smol_executor")]
-    pub fn use_smol_executor(self) -> AgnosticExecutorManager {
+    pub fn use_smol_executor(self, num_threads: Option<usize>) -> AgnosticExecutorManager {
         let rt = Arc::new(async_executor::Executor::new());
         let handle = rt.clone();
+        let num_threads = num_threads.unwrap_or(num_cpus::get());
         AgnosticExecutorManager { 
             inner_handle: SmolHandle(handle),
-            inner_runtime: SmolRuntime(rt)
+            inner_runtime: SmolRuntime(rt, num_threads)
         }
-    }
-
-    /// TODO Doc
-    #[cfg(feature = "smol_executor")]
-    pub fn use_smol_executor_parallel(self) -> AgnosticExecutorManager {
-        // TODO Here doesn't make send to provide the executor as it cannot be run in parallel, just provide parallel config into SmolRuntime
-        // TODO Make it a different smol feature??? Make this one the default and the other the single threaded one?
-        unimplemented!()
     }
 
     /// TODO Doc
@@ -301,6 +295,9 @@ impl AgnosticExecutorBuilder {
     }
 }
 
+use once_cell::sync::OnceCell;
+static GLOBAL_EXECUTOR: OnceCell<AgnosticExecutor>  = OnceCell::new();
+
 /// TODO Doc
 pub struct AgnosticExecutorManager {
     inner_runtime: ExecutorInner,
@@ -314,8 +311,8 @@ impl AgnosticExecutorManager {
     }
 
     /// TODO Doc
-    pub fn set_as_global(self) {
-        // TODO 
+    pub fn set_as_global(&self) {
+        GLOBAL_EXECUTOR.set(self.get_executor()).expect("Global executor already set");
     }
 
     /// Start the executor
@@ -330,8 +327,18 @@ impl AgnosticExecutorManager {
                 async_std::task::block_on(future);
             },
             #[cfg(feature = "smol_executor")]
-            SmolRuntime(executor) => {
-                futures_lite::future::block_on(executor.run(future));
+            SmolRuntime(executor, num_threads) => {
+                if num_threads > 1 {
+                    let (signal, shutdown) = async_channel::unbounded::<()>();
+                    easy_parallel::Parallel::new()
+                        .each(0..num_threads, |_| futures_lite::future::block_on(executor.run(shutdown.recv())))
+                        .finish(|| futures_lite::future::block_on(async {
+                            println!("Hello world!");
+                            drop(signal);
+                        }));
+                } else {
+                    futures_lite::future::block_on(executor.run(future));
+                }
             },
             #[cfg(feature = "futures_executor")]
             FuturesRuntime(runtime) => {
@@ -348,4 +355,36 @@ impl AgnosticExecutorManager {
 /// TODO Doc
 pub fn new_agnostic_executor() -> AgnosticExecutorBuilder {
     AgnosticExecutorBuilder {}
+}
+
+/// TODO Doc
+pub fn get_global_executor() -> &'static AgnosticExecutor {
+    GLOBAL_EXECUTOR.get().expect("No global executor set")
+}
+
+/// TODO Doc
+pub fn spawn<F, T>(future: F) -> JoinHandle<T>
+    where
+        F: Future<Output = T> + Send + 'static,
+        T: Send + 'static,
+{
+    get_global_executor().spawn(future)
+}
+
+/// TODO Doc
+pub fn spawn_blocking<F, T>(task: F) -> JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    get_global_executor().spawn_blocking(task)
+}
+
+/// TODO Doc
+pub fn spawn_local<F, T>(future: F) -> JoinHandle<T>
+where
+    F: Future<Output = T> + 'static,
+    T: Send + 'static,
+{
+    get_global_executor().spawn_local(future)
 }

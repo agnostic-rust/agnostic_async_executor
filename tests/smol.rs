@@ -7,7 +7,7 @@ mod smol_tests {
     use agnostic_async_executor::{AgnosticExecutorManager, new_agnostic_executor};
 
     fn get_manager() -> AgnosticExecutorManager {
-        new_agnostic_executor().use_smol_executor()
+        new_agnostic_executor().use_smol_executor(None)
     }
 
     #[test]

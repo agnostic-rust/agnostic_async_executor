@@ -19,7 +19,7 @@ mod tokio_tests {
     fn test_spawn_blocking() {
         super::common::test_spawn_blocking(get_manager());
     }
-    
+
     #[test]
     fn test_spawn_local() {
         super::common::test_spawn_local(get_manager());
