@@ -8,6 +8,9 @@ use core::{future::Future};
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
+#[cfg(feature = "smol_executor")]
+use std::sync::Arc;
+
 // TODO Move this as issues on the repo
 // TODO Get our own macros for main, test, benchmark, ... or recommend using the upstream ones
 // TODO Provide Executor Agnostic time features
@@ -22,7 +25,7 @@ pub enum JoinHandle<T> {
     AsyncStd(async_std::task::JoinHandle<T>),
     /// TODO Doc
     #[cfg(feature = "smol_executor")]
-    Smol(smol::Task<T>),
+    Smol(async_executor::Task<T>),
     /// TODO Doc
     #[cfg(feature = "wasm_bindgen_executor")]
     RemoteHandle(futures::future::RemoteHandle<T>)
@@ -56,7 +59,7 @@ enum ExecutorInner {
     #[cfg(feature = "async_std_executor")]
     AsyncStdRuntime,
     #[cfg(feature = "smol_executor")]
-    SmolRuntime,
+    SmolRuntime(Arc<async_executor::Executor<'static>>),
     #[cfg(feature = "futures_executor")]
     FuturesRuntime(futures::executor::ThreadPool),
     #[cfg(feature = "wasm_bindgen_executor")]
@@ -72,7 +75,7 @@ enum ExecutorInnerHandle {
     #[cfg(feature = "async_std_executor")]
     AsyncStdHandle,
     #[cfg(feature = "smol_executor")]
-    SmolHandle,
+    SmolHandle(Arc<async_executor::Executor<'static>>),
     #[cfg(feature = "futures_executor")]
     FuturesHandle(futures::executor::ThreadPool),
     #[cfg(feature = "wasm_bindgen_executor")]
@@ -80,8 +83,6 @@ enum ExecutorInnerHandle {
 }
 
 use ExecutorInnerHandle::*;
-
-
 
 /// TODO Doc
 #[derive(Debug, Clone)]
@@ -106,8 +107,8 @@ impl AgnosticExecutor {
                 JoinHandle::<T>::AsyncStd(async_std::task::spawn(future))
             }, 
             #[cfg(feature = "smol_executor")]
-            SmolHandle => {
-                JoinHandle::<T>::Smol(smol::spawn(future))
+            SmolHandle(executor) => {
+                JoinHandle::<T>::Smol(executor.spawn(future))
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(executor) => {
@@ -142,8 +143,8 @@ impl AgnosticExecutor {
                 JoinHandle::<T>::AsyncStd(async_std::task::spawn_blocking(task))
             },
             #[cfg(feature = "smol_executor")]
-            SmolHandle => {
-                JoinHandle::<T>::Smol(smol::spawn(smol::unblock( || task() )))
+            SmolHandle(executor) => {
+                JoinHandle::<T>::Smol(executor.spawn(blocking::unblock( || task() )))
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(executor) => {
@@ -185,11 +186,11 @@ impl AgnosticExecutor {
                 JoinHandle::<T>::AsyncStd(async_std::task::spawn_local(future))
             },
             #[cfg(feature = "smol_executor")]
-            SmolHandle => {
-                let ex = smol::LocalExecutor::new(); 
+            SmolHandle(executor) => {
+                let ex = async_executor::LocalExecutor::new(); 
                 let task = ex.spawn(future);
-                let res = smol::block_on(ex.run(task));
-                JoinHandle::<T>::Smol(smol::spawn(async { res }))
+                let res = futures_lite::future::block_on(ex.run(task));
+                JoinHandle::<T>::Smol(executor.spawn(async { res }))
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(executor) => {
@@ -213,21 +214,13 @@ impl AgnosticExecutor {
 }
 
 /// TODO Doc
-pub struct AgnosticExecutorBuilder {
-    // TODO Config Options
-    // TODO Ideal number of thread (1, N, auto, ...)
-    // TODO At least tokio needs special config to run time functions 
-}
+pub struct AgnosticExecutorBuilder {}
 
 impl AgnosticExecutorBuilder {
-
-    // TODO Config Options !!!
-
 
     /// TODO Doc
     #[cfg(feature = "tokio_executor")]
     pub fn use_tokio_executor(self) -> AgnosticExecutorManager {
-        // TODO We can accept tokio specific options
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -239,10 +232,15 @@ impl AgnosticExecutorBuilder {
         }
     }
 
-    // #[cfg(feature = "tokio_executor")]
-    // pub fn use_tokio_with_runtime(self, rt: tokio::runtime::Runtime) -> AgnosticExecutorManager {
-    //     // TODO
-    // }
+    /// TODO Doc
+    #[cfg(feature = "tokio_executor")]
+    pub fn use_tokio_executor_with_runtime(self, rt: tokio::runtime::Runtime) -> AgnosticExecutorManager {
+        let handle = rt.handle().clone();
+        AgnosticExecutorManager { 
+            inner_handle: TokioHandle(handle),
+            inner_runtime: TokioRuntime(rt)
+        }
+    }
 
     /// TODO Doc
     #[cfg(feature = "async_std_executor")]
@@ -256,20 +254,40 @@ impl AgnosticExecutorBuilder {
     /// TODO Doc
     #[cfg(feature = "smol_executor")]
     pub fn use_smol_executor(self) -> AgnosticExecutorManager {
+        let rt = Arc::new(async_executor::Executor::new());
+        let handle = rt.clone();
         AgnosticExecutorManager { 
-            inner_handle: SmolHandle,
-            inner_runtime: SmolRuntime
+            inner_handle: SmolHandle(handle),
+            inner_runtime: SmolRuntime(rt)
         }
+    }
+
+    /// TODO Doc
+    #[cfg(feature = "smol_executor")]
+    pub fn use_smol_executor_parallel(self) -> AgnosticExecutorManager {
+        // TODO Here doesn't make send to provide the executor as it cannot be run in parallel, just provide parallel config into SmolRuntime
+        // TODO Make it a different smol feature??? Make this one the default and the other the single threaded one?
+        unimplemented!()
     }
 
     /// TODO Doc
     #[cfg(feature = "futures_executor")]
     pub fn use_futures_executor(self) -> AgnosticExecutorManager {
-        let tp = futures::executor::ThreadPool::new().expect("Error creating the futures threadpool");
-        let tp_handle = tp.clone();
+        let rt = futures::executor::ThreadPool::new().expect("Error creating the futures threadpool");
+        let handle = rt.clone();
         AgnosticExecutorManager { 
-            inner_handle: FuturesHandle(tp_handle),
-            inner_runtime: FuturesRuntime(tp)
+            inner_handle: FuturesHandle(handle),
+            inner_runtime: FuturesRuntime(rt)
+        }
+    }
+
+    /// TODO Doc
+    #[cfg(feature = "futures_executor")]
+    pub fn use_futures_executor_with_runtime(self, rt: futures::executor::ThreadPool) -> AgnosticExecutorManager {
+        let handle = rt.clone();
+        AgnosticExecutorManager { 
+            inner_handle: FuturesHandle(handle),
+            inner_runtime: FuturesRuntime(rt)
         }
     }
 
@@ -300,7 +318,7 @@ impl AgnosticExecutorManager {
         // TODO 
     }
 
-    /// Start the executor, if you need special configuration just start the concrete executor and don't use this function
+    /// Start the executor
     pub fn start<F>(self, future: F) where F: Future<Output = ()> + Send + 'static {
         match self.inner_runtime {
             #[cfg(feature = "tokio_executor")]
@@ -312,8 +330,8 @@ impl AgnosticExecutorManager {
                 async_std::task::block_on(future);
             },
             #[cfg(feature = "smol_executor")]
-            SmolRuntime => {
-                smol::block_on(future);
+            SmolRuntime(executor) => {
+                futures_lite::future::block_on(executor.run(future));
             },
             #[cfg(feature = "futures_executor")]
             FuturesRuntime(runtime) => {
