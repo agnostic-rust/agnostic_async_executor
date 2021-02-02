@@ -7,7 +7,9 @@ dependencies = [
  "agnostic_async_executor",
  "async-channel",
  "async-executor",
+ "async-io",
  "async-std",
+ "async-timer",
  "blocking",
  "easy-parallel",
  "futures",
@@ -15,18 +17,9 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "tokio",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
-]
-
-[[package]]
-name = "async-attributes"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3203e79f4dd9bdda415ed03cf14dae5a2bf775c683a00f94e9cd1faf0f596e5"
-dependencies = [
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -130,7 +123,6 @@ version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9f06685bad74e0570f5213741bea82158279a4103d988e57bfada11ad230341"
 dependencies = [
- "async-attributes",
  "async-channel",
  "async-global-executor",
  "async-io",
@@ -158,6 +150,18 @@ name = "async-task"
 version = "4.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e91831deabf0d6d7ec49552e489aed63b7456a7a3c46cff62adad428110b0af0"
+
+[[package]]
+name = "async-timer"
+version = "1.0.0-beta.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d962799a5863fdf06fbf594e04102130582d010379137e9a98a7e2e693a5885"
+dependencies = [
+ "error-code",
+ "libc",
+ "wasm-bindgen",
+ "winapi",
+]
 
 [[package]]
 name = "atomic-waker"
@@ -250,6 +254,16 @@ name = "easy-parallel"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd4afd79212583ff429b913ad6605242ed7eec277e950b1438f300748f948f4"
+
+[[package]]
+name = "error-code"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49c94f66f2d2c5ee8685039e458b4e6c9f13af7c28736baf10ce42966a5ab52"
+dependencies = [
+ "libc",
+ "str-buf",
+]
 
 [[package]]
 name = "event-listener"
@@ -543,6 +557,12 @@ name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
+
+[[package]]
+name = "str-buf"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d44a3643b4ff9caf57abcee9c2c621d6c03d9135e0d8b589bd9afb5992cb176a"
 
 [[package]]
 name = "syn"

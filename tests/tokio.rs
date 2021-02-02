@@ -24,4 +24,14 @@ mod tokio_tests {
     fn test_spawn_local() {
         super::common::test_spawn_local(get_manager());
     }
+
+    #[test]
+    fn test_sleep() {
+        super::common::test_sleep(get_manager());
+    }
+
+    #[test]
+    fn test_timeout() {
+        super::common::test_timeout(get_manager());
+    }
 }
