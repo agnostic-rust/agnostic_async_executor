@@ -20,10 +20,10 @@ mod global_tests {
             }).await;
             assert_eq!(res, 1);
 
-            let res = agnostic_async_executor::spawn_local(async {
-                1i32
-            }).await;
-            assert_eq!(res, 1);
+            // let res = agnostic_async_executor::spawn_local(async {
+            //     1i32
+            // }).await;
+            // assert_eq!(res, 1);
 
         });
     }

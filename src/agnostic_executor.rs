@@ -6,9 +6,6 @@ use core::task::{Context, Poll};
 #[cfg(feature = "smol_executor")]
 use std::sync::Arc;
 
-// TODO Move this as issues on the repo
-// TODO Get our own macros for main, test, benchmark, ... or recommend using the upstream ones
-
 enum JoinHandleInner<T> {
     #[cfg(feature = "tokio_executor")]
     Tokio(tokio::task::JoinHandle<T>),
@@ -162,6 +159,8 @@ impl AgnosticExecutor {
         JoinHandle{inner}
     }
 
+
+    /*
     /// Spawns a future that doesn't implement [Send].
     ///
     /// The spawned future will be executed on the same thread that called `spawn_local`.
@@ -215,6 +214,7 @@ impl AgnosticExecutor {
 
         JoinHandle{inner}
     }
+    */
     
 }
 
@@ -354,6 +354,42 @@ impl AgnosticExecutorManager {
             }
         }
     }
+
+    /// Start the executor
+    pub fn start_local<F>(self, future: F) where F: Future<Output = ()> + 'static {
+        match self.inner_runtime {
+            #[cfg(feature = "tokio_executor")]
+            TokioRuntime(runtime) => {
+                runtime.block_on(future);
+            },
+            #[cfg(feature = "async_std_executor")]
+            AsyncStdRuntime => {
+                async_std::task::block_on(future);
+            },
+            #[cfg(feature = "smol_executor")]
+            SmolRuntime(executor, num_threads) => {
+                if num_threads > 1 {
+                    let (signal, shutdown) = async_channel::unbounded::<()>();
+                    easy_parallel::Parallel::new()
+                        .each(0..num_threads, |_| futures_lite::future::block_on(executor.run(shutdown.recv())))
+                        .finish(|| futures_lite::future::block_on(async {
+                            future.await;
+                            drop(signal);
+                        }));
+                } else {
+                    futures_lite::future::block_on(executor.run(future));
+                }
+            },
+            // #[cfg(feature = "futures_executor")]
+            // FuturesRuntime(runtime) => {
+            //     runtime.spawn_ok(future);
+            // },
+            #[cfg(feature = "wasm_bindgen_executor")]
+            WasmBindgenRuntime => {
+                wasm_bindgen_futures::spawn_local(future);
+            }
+        }
+    }
 }
 
 /// TODO Doc
@@ -384,11 +420,11 @@ where
     get_global_executor().spawn_blocking(task)
 }
 
-/// TODO Doc
-pub fn spawn_local<F, T>(future: F) -> JoinHandle<T>
-where
-    F: Future<Output = T> + 'static,
-    T: Send + 'static,
-{
-    get_global_executor().spawn_local(future)
-}
+// /// TODO Doc
+// pub fn spawn_local<F, T>(future: F) -> JoinHandle<T>
+// where
+//     F: Future<Output = T> + 'static,
+//     T: Send + 'static,
+// {
+//     get_global_executor().spawn_local(future)
+// }
