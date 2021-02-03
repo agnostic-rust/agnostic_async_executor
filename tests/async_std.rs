@@ -34,4 +34,10 @@ mod async_std_tests {
     fn test_timeout() {
         super::common::test_timeout(get_manager());
     }
+
+    #[test]
+    fn test_interval() {
+        super::common::test_interval(get_manager());
+    }
+
 }
