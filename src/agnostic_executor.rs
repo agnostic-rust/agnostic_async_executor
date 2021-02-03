@@ -380,10 +380,10 @@ impl AgnosticExecutorManager {
                     futures_lite::future::block_on(executor.run(future));
                 }
             },
-            // #[cfg(feature = "futures_executor")]
-            // FuturesRuntime(runtime) => {
-            //     runtime.spawn_ok(future);
-            // },
+            #[cfg(feature = "futures_executor")]
+            FuturesRuntime(_runtime) => {
+                unimplemented!();
+            },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenRuntime => {
                 wasm_bindgen_futures::spawn_local(future);

@@ -45,7 +45,7 @@ mod wasm_bindgen_tests {
 
     #[wasm_bindgen_test]
     async fn test_sleep() {
-        use agnostic_async_executor::now;
+        use agnostic_async_executor::wasm_now;
         let exec = get_executor();
         let start = wasm_now();
         exec.sleep(std::time::Duration::from_millis(200)).await;

@@ -26,13 +26,11 @@ mod futures_tests {
     // }
     
     #[test]
-    #[ignore] // FIXME
     fn test_sleep() {
         super::common::test_sleep(get_manager());
     }
 
     #[test]
-    #[ignore] // FIXME
     fn test_timeout() {
         super::common::test_timeout(get_manager());
     }

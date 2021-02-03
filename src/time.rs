@@ -79,7 +79,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(_) => {
-                futures_timer::Delay::new(duration).await;
+                async_timer::new_timer(duration).await;
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
@@ -109,13 +109,8 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(_) => {
-                use futures::{FutureExt, select_biased};
-                let mut future = Box::pin(future.fuse());
-                let mut delay = futures_timer::Delay::new(duration).fuse();
-                select_biased! {
-                    res = future => Ok(res),
-                    _ = delay => Err(TimedOut),
-                }
+                futures::pin_mut!(future);
+                async_timer::timed(future, duration).await.map_err(|_| TimedOut)
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
