@@ -17,6 +17,7 @@ dependencies = [
  "js-sys",
  "num_cpus",
  "once_cell",
+ "send_wrapper",
  "tokio",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -543,6 +544,12 @@ checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "send_wrapper"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "930c0acf610d3fdb5e2ab6213019aaa04e227ebe9547b0649ba599b16d788bd7"
 
 [[package]]
 name = "signal-hook"

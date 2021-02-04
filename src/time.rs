@@ -87,7 +87,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
-                wasm_time::wasm_timeout(duration).await;
+                wasm_time::WasmSleepFuture::new(duration).await;
             }
         }        
     }
@@ -118,14 +118,8 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
-                // TODO Handle this implementing a custom future in wasm_time to avoid select_biased! and the dependency
-                use futures::{FutureExt, select_biased};
-                let mut future = Box::pin(future.fuse());
-                let mut delay = Box::pin(wasm_time::wasm_timeout(duration).fuse());
-                select_biased! {
-                    res = future => Ok(res),
-                    _ = delay => Err(TimedOut),
-                }
+                futures::pin_mut!(future);
+                WasmTimeoutFuture::new(future, duration).await
             }
         }        
     }

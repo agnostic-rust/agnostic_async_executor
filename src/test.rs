@@ -135,6 +135,8 @@ macro_rules! check_op {
     };
 }
 
+// TODO Is there any use for the check_* functions? Remove them and include closures in the macros.
+
 /// TODO Doc
 pub fn check_gt<A: PartialOrd<B>, B>(a: A, b: B) -> bool { a > b }
 
