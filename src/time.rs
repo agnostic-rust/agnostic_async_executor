@@ -162,4 +162,86 @@ impl AgnosticExecutor {
         }        
     }
 
+    // TODO interval_millis, sleep_millis, ... move the to_millis function !
+
+}
+
+/// TODO Doc
+pub struct Stopwatch {
+    #[cfg(not(feature = "wasm_bindgen_executor"))]
+    start: std::time::Instant,
+    #[cfg(feature = "wasm_bindgen_executor")]
+    start: u64,
+    tolerance: u64
+}
+
+fn to_millis(duration: Duration) -> u64 {
+    (duration.as_secs_f64() * 1000.0) as u64
+}
+
+impl Stopwatch {
+    /// TODO Doc
+    pub fn new() -> Self {
+        Stopwatch::new_tolerant_millis(0)
+    }
+
+    /// TODO Doc
+    pub fn new_tolerant(tolerance: Duration) -> Self {
+        Stopwatch::new_tolerant_millis(to_millis(tolerance))
+    }
+
+    /// TODO Doc
+    pub fn new_tolerant_millis(tolerance: u64) -> Self {
+        Stopwatch {
+            #[cfg(not(feature = "wasm_bindgen_executor"))]
+            start: std::time::Instant::now(),
+            #[cfg(feature = "wasm_bindgen_executor")]
+            start: wasm_now() as u64,
+            tolerance
+        }  
+    }
+
+    /// TODO Doc
+    pub fn set_tolerance(&mut self, tolerance: Duration) {
+        self.tolerance = to_millis(tolerance);
+    }
+
+    /// TODO Doc
+    pub fn set_tolerance_millis(&mut self, tolerance: u64) {
+        self.tolerance = tolerance;
+    }
+
+    /// TODO Doc
+    pub fn elapsed(&self) -> Duration {
+        #[cfg(not(feature = "wasm_bindgen_executor"))]
+        return self.start.elapsed();
+        #[cfg(feature = "wasm_bindgen_executor")]
+        return Duration::from_millis(wasm_now() - self.start);
+    }
+
+    /// TODO Doc
+    pub fn elapsed_millis(&self) -> u64 {
+        #[cfg(not(feature = "wasm_bindgen_executor"))]
+        return to_millis(self.start.elapsed());
+        #[cfg(feature = "wasm_bindgen_executor")]
+        return wasm_now() - self.start;
+    }
+
+    /// TODO Doc
+    pub fn has_elapsed(&self, duration: Duration) -> bool {
+        self.has_elapsed_millis(to_millis(duration))
+    }
+
+    /// TODO Doc
+    pub fn has_elapsed_millis(&self, duration: u64) -> bool {
+        self.elapsed_millis() + self.tolerance >= duration
+    }
+
+    /// TODO Doc
+    pub fn reset(&mut self) {
+        #[cfg(not(feature = "wasm_bindgen_executor"))]
+        { self.start = std::time::Instant::now(); }
+        #[cfg(feature = "wasm_bindgen_executor")]
+        { self.start = wasm_now() as u64; }
+    }
 }

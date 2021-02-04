@@ -1,19 +1,15 @@
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(inline_js = r#"
-export function wasm_now() {
+export function js_now() {
     return performance.now();
 }"#)]
 extern "C" {
-    pub fn wasm_now() -> f64;
+    pub fn js_now() -> f64;
 }
 
-#[wasm_bindgen(inline_js = r#"
-export function wasm_log(msg) {
-    return console.log(msg);
-}"#)]
-extern "C" {
-    pub fn wasm_log(msg: &str);
+pub(crate) fn wasm_now() -> u64 {
+    js_now() as u64
 }
 
 #[wasm_bindgen(inline_js = r#"
@@ -38,12 +34,12 @@ pub(crate) struct WasmInterval {
 impl WasmInterval {
     pub(crate) fn new(duration: std::time::Duration) -> Self {
         let delay  = duration.as_secs_f64() * 1000.0;
-        let next_interval = wasm_now() + delay;
+        let next_interval = js_now() + delay;
         WasmInterval {delay, next_interval}
     }
 
     pub(crate) async fn next(&mut self) {
-        let remaining = self.next_interval - wasm_now();
+        let remaining = self.next_interval - js_now();
         //wasm_log(&format!("Next: {:.2} Remaining: {:.2} Delay: {:.2}", self.next_interval,  remaining, self.delay));
         js_delay(remaining).await;
         self.next_interval += self.delay;

@@ -1,12 +1,10 @@
-#![cfg(not(feature = "wasm_bindgen_executor"))]
-
 #[cfg(test)]
-mod common_tests {
-    use agnostic_async_executor::test::*;
+pub(crate) mod common_tests {
+    use agnostic_async_executor::{Stopwatch, test::*};
 
     #[test]
-    fn test_spawn() {
-        test_in_all(|manager, helper| {
+    pub fn test_spawn() {
+        test_in_all(|manager, mut helper| {
             manager.start(async move{
                 let exec = helper.get_executor();
                 let res = exec.spawn(async {
@@ -18,8 +16,8 @@ mod common_tests {
     }
 
     #[test]
-    fn test_spawn_blocking() {
-        test_in_all(|manager, helper| {
+    pub fn test_spawn_blocking() {
+        test_in_all(|manager, mut helper| {
             manager.start(async move{
                 let exec = helper.get_executor();
                 let res = exec.spawn_blocking(|| {
@@ -31,22 +29,20 @@ mod common_tests {
     }
 
     #[test]
-    fn test_sleep() {
-        test_in_all(|manager, helper| {
+    pub fn test_sleep() {
+        test_in_all(|manager, mut helper| {
             manager.start(async move{
                 let exec = helper.get_executor();
-                let start = std::time::Instant::now();
+                let sw = Stopwatch::new_tolerant_millis(2);
                 exec.sleep(std::time::Duration::from_millis(200)).await;
-                let dur = std::time::Instant::now().checked_duration_since(start).unwrap().as_millis();
-                let margin = 2;
-                check!(helper, dur + margin >= 200);
+                check!(helper, sw.has_elapsed_millis(200));
             });
         });
     }
     
     #[test]
-    fn test_timeout() {
-        test_in_all(|manager, helper| {
+    pub fn test_timeout() {
+        test_in_all(|manager, mut helper| {
             manager.start(async move{
                 let exec = helper.get_executor();
                 let res = exec.timeout(std::time::Duration::from_millis(100), async {
@@ -58,28 +54,19 @@ mod common_tests {
     }
 
     #[test]
-    fn test_interval() {
-        test_in_all(|manager, helper| {
+    pub fn test_interval() {
+        test_in_all(|manager, mut helper| {
             manager.start(async move{
                 let exec = helper.get_executor();
-                let start = std::time::Instant::now();
+                let sw = Stopwatch::new_tolerant_millis(2);
                 let delay = 10;
-                let margin = 2.0;
                 let mut interval = exec.interval(std::time::Duration::from_millis(delay));
 
                 for i in 1..100u64 {
                     interval.next().await;
-                    let elapsed = start.elapsed().as_secs_f64() * 1000.0;
-                    check!(helper, elapsed + margin >= (i*delay) as f64);
+                    check!(helper, sw.has_elapsed_millis(i*delay));
                 }
             });
         });
     }
-
-    // // We should do this for wasm, but we need stopwatch first !!!
-    // #[test] 
-    // fn test_spawn_2() {
-    //     test_spawn();
-    // }
-
 }
