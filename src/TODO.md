@@ -19,6 +19,7 @@ If they want to be partially agnostic, because they need spawn_local, or other f
 
 ------------------------------------
 
+- StopWatch abstraction in time module: new, new_tolerant, new_tolerant_millis, elapsed, elapsed_millis, set_tolerance, set_tolerance_millis, has_elapsed, has_elapsed_millis, reset
 - Support spawn_local in smol using the ideas from async_global_executor
 - Support async_global_executor (including spawn_local)
 - Support tokio single threaded with spawn_local support

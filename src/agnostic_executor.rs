@@ -15,6 +15,7 @@ enum JoinHandleInner<T> {
     Smol(async_executor::Task<T>),
     #[cfg(any(feature = "wasm_bindgen_executor", feature = "futures_executor"))]
     RemoteHandle(futures::future::RemoteHandle<T>)
+    // TODO Provide a dummy entry when no other features are enabled to use the type T, this will be disabled in any real use case
 }
 
 /// TODO Doc
