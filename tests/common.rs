@@ -1,6 +1,6 @@
 #[cfg(test)]
 pub(crate) mod common_tests {
-    use agnostic_async_executor::{Stopwatch, test::*};
+    use agnostic_async_executor::{time::Stopwatch, test::*};
 
     #[test]
     pub fn test_spawn() {

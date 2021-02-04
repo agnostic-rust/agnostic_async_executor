@@ -1,9 +1,12 @@
+//! Time
+//! TODO Doc
+
 #![ cfg(feature = "time") ]
 
 use std::time::Duration;
 
 use crate::AgnosticExecutor;
-use crate::agnostic_executor::ExecutorInnerHandle::*;
+use crate::executors::ExecutorInnerHandle::*;
 
 #[cfg(feature = "wasm_bindgen_executor")]
 mod wasm_time;

@@ -7,7 +7,7 @@ use send_wrapper::SendWrapper;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
-use crate::TimedOut;
+use crate::time::TimedOut;
 
 #[wasm_bindgen(inline_js = r#"
 export function js_now() {
