@@ -3,11 +3,13 @@
 
 #![ cfg(feature = "test") ]
 
-use futures::{SinkExt, channel::mpsc::{UnboundedSender, unbounded}};
+use std::sync::Arc;
+
+use concurrent_queue::ConcurrentQueue;
 
 use crate::{AgnosticExecutor, AgnosticExecutorManager, new_agnostic_executor};
 
-pub use super::{check, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re re-export here for convenience
+pub use super::{check, check_eq, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re re-export here for convenience
 
 #[derive(Debug, Clone)]
 enum TestMessage {
@@ -16,31 +18,35 @@ enum TestMessage {
 
 use TestMessage::*;
 
+// TODO Probably is not needed to store the executor here, as we must start the executor outside anyway. Remove it.
+
 /// TODO Doc
 #[derive(Debug, Clone)]
 pub struct TestHelper {
     runtime_name: String,
     executor: AgnosticExecutor,
-    sender: UnboundedSender<TestMessage>
+    test_queue: Arc<ConcurrentQueue<TestMessage>>
 }
 
 impl TestHelper {
     
-    fn test_wrapper<F>(runtime_name: String, manager: AgnosticExecutorManager, errors: &mut Vec<String>, body: &F) where F: Fn(AgnosticExecutorManager, TestHelper) {
-        let (sender, mut receiver) = unbounded();
+    fn test_wrapper_native<F>(runtime_name: String, manager: AgnosticExecutorManager, errors: &mut Vec<String>, body: &F) where F: Fn(AgnosticExecutorManager, TestHelper) {
+        let test_queue = Arc::new(ConcurrentQueue::unbounded());
         let executor = manager.get_executor();
-        let helper = TestHelper {runtime_name, executor, sender};
+        let helper = TestHelper {runtime_name, executor, test_queue: test_queue.clone()};
 
         body(manager, helper);
 
+        // IMPORTANT This assumes that manager.start is a blocking call on native platforms (unlike wasm) 
+
         loop {
-            match receiver.try_next() {
-                Ok(Some(Check(success, msg))) => {
+            match test_queue.pop() {
+                Ok(Check(success, msg)) => {
                     if !success {
                         errors.push(msg);
                     }
                 },
-                _ => break
+                Err(_) => break
             }
         }
     }
@@ -57,49 +63,84 @@ impl TestHelper {
 
     /// TODO Doc
     pub fn check(&mut self, success: bool, msg: &str) {
-        &self.sender.send(Check(success, msg.to_owned()));
+        &self.test_queue.push(Check(success, msg.to_owned()));
     }
 }
 
 /// TODO Doc
-pub fn test_in_all<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
+#[ cfg(not(feature = "wasm_bindgen_executor")) ]
+pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
     let mut errors = Vec::new();
 
     #[ cfg(feature = "tokio_executor") ]
     {
         let manager = new_agnostic_executor().use_tokio_executor();
-        TestHelper::test_wrapper("Tokio".to_owned(), manager, &mut errors, &body);
+        TestHelper::test_wrapper_native("Tokio".to_owned(), manager, &mut errors, &body);
     }
 
     #[ cfg(feature = "async_std_executor") ]
     {
         let manager = new_agnostic_executor().use_async_std_executor();
-        TestHelper::test_wrapper("AsyncStd".to_owned(), manager, &mut errors, &body);
+        TestHelper::test_wrapper_native("AsyncStd".to_owned(), manager, &mut errors, &body);
     }
 
     #[ cfg(feature = "smol_executor") ]
     {
         let manager = new_agnostic_executor().use_smol_executor(None);
-        TestHelper::test_wrapper("Smol".to_owned(), manager, &mut errors, &body);
+        TestHelper::test_wrapper_native("Smol".to_owned(), manager, &mut errors, &body);
     }
 
     #[ cfg(feature = "futures_executor") ]
     {
         let manager = new_agnostic_executor().use_futures_executor();
-        TestHelper::test_wrapper("Futures".to_owned(), manager, &mut errors, &body);
+        TestHelper::test_wrapper_native("Futures".to_owned(), manager, &mut errors, &body);
     }
 
-    #[ cfg(feature = "wasm_bindgen_executor") ]
-    {
-        let manager = new_agnostic_executor().use_wasm_bindgen_executor();
-        TestHelper::test_wrapper("WasmBindgen".to_owned(), manager, &mut errors, &body);
-    }
-
-    if !errors.is_empty() {
+    let without_errors = errors.is_empty();
+    if !without_errors {
         let msg = format!("\n{}\n", errors.join("\n"));
-        assert!(false, msg);
+        assert!(without_errors, "{}", msg);
     }
 }
+
+/// TODO Doc
+#[ cfg(feature = "wasm_bindgen_executor") ]
+pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
+
+    let mut manager = new_agnostic_executor().use_wasm_bindgen_executor();
+    let test_queue = Arc::new(ConcurrentQueue::unbounded());
+    let executor = manager.get_executor();
+
+    let (sender, receiver) = futures::channel::oneshot::channel::<i32>();
+
+    manager.on_finish(|| { sender.send(1).unwrap();  } );
+
+    let helper = TestHelper {runtime_name: "WasmBindgen".to_owned(), executor, test_queue: test_queue.clone()};
+
+    body(manager, helper);
+
+    receiver.await.unwrap();
+
+    let mut errors = Vec::new();
+    
+    loop {
+        match test_queue.pop() {
+            Ok(Check(success, msg)) => {
+                if !success {
+                    errors.push(msg);
+                }
+            },
+            Err(_) => break
+        }
+    }
+
+    let without_errors = errors.is_empty();
+    if !without_errors {
+        let msg = format!("\n{}\n", errors.join("\n"));
+        assert!(without_errors, "{}", msg);
+    }
+}
+
 
 // TODO Test helpers for specific runtime tests test_in_X
 
@@ -133,6 +174,14 @@ macro_rules! check_op {
             }
         }
     };
+}
+
+/// TODO Doc
+#[macro_export]
+macro_rules! check_eq {
+    ($helper:expr, $a:expr, $b:expr) => {
+        agnostic_async_executor::test::check_op!($helper, $a, $b, (|a, b| a == b ));   
+    }
 }
 
 // TODO Is there any use for the check_* functions? Remove them and include closures in the macros.

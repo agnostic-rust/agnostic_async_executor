@@ -90,7 +90,7 @@ impl AgnosticExecutor {
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
-                wasm_time::WasmSleepFuture::new(duration).await;
+                WasmSleepFuture::new(duration).await;
             }
         }        
     }

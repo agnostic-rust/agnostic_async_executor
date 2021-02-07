@@ -37,7 +37,8 @@ pub(crate) struct WasmSleepFuture {
 
 impl WasmSleepFuture {
     pub fn new(duration: std::time::Duration) -> Self {
-        WasmSleepFuture::new_millis(duration.as_secs_f64() as u64 * 1000)
+        let millis = (duration.as_secs_f64() * 1000.0) as u64;
+        WasmSleepFuture::new_millis(millis)
     }
 
     pub fn new_millis(duration: u64) -> Self {
@@ -110,8 +111,8 @@ impl WasmInterval {
     }
 
     pub(crate) async fn next(&mut self) {
-        let remaining = self.next_interval - wasm_now();
-        WasmSleepFuture::new_millis(remaining).await;
+        let remaining = self.next_interval as f64 - wasm_now() as f64;
+        WasmSleepFuture::new_millis(remaining as u64).await; // Will be 0 if negative
         self.next_interval += self.delay;
     }
 }
