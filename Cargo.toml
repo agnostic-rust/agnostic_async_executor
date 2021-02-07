@@ -45,8 +45,8 @@ concurrent-queue = { version = "^1.2", optional = true }
 # This might change when this is fixed https://github.com/rustwasm/wasm-pack/issues/698
 
 [dev-dependencies]
-agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time"] }
+# agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time"] }
 
 [target.wasm32-unknown-unknown.dev-dependencies]
-# agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time"] }
-# wasm-bindgen-test = "^0.3"
+agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time"] }
+wasm-bindgen-test = "^0.3"

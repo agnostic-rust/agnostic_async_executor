@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use concurrent_queue::ConcurrentQueue;
 
-use crate::{AgnosticExecutor, AgnosticExecutorManager, new_agnostic_executor};
+use crate::{AgnosticExecutorManager, new_agnostic_executor};
 
 pub use super::{check, check_eq, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re re-export here for convenience
 
@@ -18,13 +18,10 @@ enum TestMessage {
 
 use TestMessage::*;
 
-// TODO Probably is not needed to store the executor here, as we must start the executor outside anyway. Remove it.
-
 /// TODO Doc
 #[derive(Debug, Clone)]
 pub struct TestHelper {
     runtime_name: String,
-    executor: AgnosticExecutor,
     test_queue: Arc<ConcurrentQueue<TestMessage>>
 }
 
@@ -32,12 +29,11 @@ impl TestHelper {
     
     fn test_wrapper_native<F>(runtime_name: String, manager: AgnosticExecutorManager, errors: &mut Vec<String>, body: &F) where F: Fn(AgnosticExecutorManager, TestHelper) {
         let test_queue = Arc::new(ConcurrentQueue::unbounded());
-        let executor = manager.get_executor();
-        let helper = TestHelper {runtime_name, executor, test_queue: test_queue.clone()};
+        let helper = TestHelper {runtime_name, test_queue: test_queue.clone()};
 
         body(manager, helper);
 
-        // IMPORTANT This assumes that manager.start is a blocking call on native platforms (unlike wasm) 
+        // IMPORTANT This assumes that manager.start is a blocking call on native platforms (unlike wasm)
 
         loop {
             match test_queue.pop() {
@@ -49,11 +45,6 @@ impl TestHelper {
                 Err(_) => break
             }
         }
-    }
-
-    /// TODO Doc
-    pub fn get_executor(&self) -> &AgnosticExecutor {
-        &self.executor
     }
 
     /// TODO Doc
@@ -103,19 +94,21 @@ pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelpe
     }
 }
 
+// TODO Test helpers for specific runtime tests test_in_X other than wasm
+// TODO Extract common parts from error checking into a function
+
 /// TODO Doc
 #[ cfg(feature = "wasm_bindgen_executor") ]
 pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
 
     let mut manager = new_agnostic_executor().use_wasm_bindgen_executor();
     let test_queue = Arc::new(ConcurrentQueue::unbounded());
-    let executor = manager.get_executor();
 
     let (sender, receiver) = futures::channel::oneshot::channel::<i32>();
 
     manager.on_finish(|| { sender.send(1).unwrap();  } );
 
-    let helper = TestHelper {runtime_name: "WasmBindgen".to_owned(), executor, test_queue: test_queue.clone()};
+    let helper = TestHelper {runtime_name: "WasmBindgen".to_owned(), test_queue: test_queue.clone()};
 
     body(manager, helper);
 
@@ -140,9 +133,6 @@ pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestH
         assert!(without_errors, "{}", msg);
     }
 }
-
-
-// TODO Test helpers for specific runtime tests test_in_X
 
 /// TODO Doc
 #[macro_export]
@@ -184,48 +174,34 @@ macro_rules! check_eq {
     }
 }
 
-// TODO Is there any use for the check_* functions? Remove them and include closures in the macros.
-
-/// TODO Doc
-pub fn check_gt<A: PartialOrd<B>, B>(a: A, b: B) -> bool { a > b }
-
 /// TODO Doc
 #[macro_export]
 macro_rules! check_gt {
     ($helper:expr, $a:expr, $b:expr) => {
-        agnostic_async_executor::test::check_op!($helper, $a, $b, check_gt);   
+        agnostic_async_executor::test::check_op!($helper, $a, $b, (|a, b| a > b ));   
     }
 }
-
-/// TODO Doc
-pub fn check_lt<A: PartialOrd<B>, B>(a: A, b: B) -> bool { a < b }
 
 /// TODO Doc
 #[macro_export]
 macro_rules! check_lt {
     ($helper:expr, $a:expr, $b:expr) => {
-        agnostic_async_executor::test::check_op!($helper, $a, $b, check_lt);   
+        agnostic_async_executor::test::check_op!($helper, $a, $b, (|a, b| a < b ));   
     }
 }
-
-/// TODO Doc
-pub fn check_ge<A: PartialOrd<B>, B>(a: A, b: B) -> bool { a >= b }
 
 /// TODO Doc
 #[macro_export]
 macro_rules! check_ge {
     ($helper:expr, $a:expr, $b:expr) => {
-        agnostic_async_executor::test::check_op!($helper, $a, $b, check_ge);   
+        agnostic_async_executor::test::check_op!($helper, $a, $b, (|a, b| a >= b ));   
     }
 }
-
-/// TODO Doc
-pub fn check_le<A: PartialOrd<B>, B>(a: A, b: B) -> bool { a <= b }
 
 /// TODO Doc
 #[macro_export]
 macro_rules! check_le {
     ($helper:expr, $a:expr, $b:expr) => {
-        agnostic_async_executor::test::check_op!($helper, $a, $b, check_le);   
+        agnostic_async_executor::test::check_op!($helper, $a, $b, (|a, b| a <= b ));   
     }
 }

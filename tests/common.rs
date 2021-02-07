@@ -2,8 +2,8 @@ pub(crate) mod common_tests {
     use agnostic_async_executor::{AgnosticExecutorManager, test::*, time::Stopwatch};
 
     pub fn common_test_spawn(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
         manager.start(async move{
-            let exec = helper.get_executor();
             let res = exec.spawn(async {
                 1i32
             }).await;
@@ -12,8 +12,8 @@ pub(crate) mod common_tests {
     }
 
     pub fn common_test_spawn_blocking(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
         manager.start(async move{
-            let exec = helper.get_executor();
             let res = exec.spawn_blocking(|| {
                 1i32
             }).await;
@@ -22,8 +22,8 @@ pub(crate) mod common_tests {
     }
 
     pub fn common_test_sleep(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
         manager.start(async move{
-            let exec = helper.get_executor();
             let sw = Stopwatch::new_tolerant_millis(2);
             exec.sleep(std::time::Duration::from_millis(200)).await;
             check!(helper, sw.has_elapsed_millis(200));
@@ -31,8 +31,8 @@ pub(crate) mod common_tests {
     }
 
     pub fn common_test_timeout(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
         manager.start(async move{
-            let exec = helper.get_executor();
             let res = exec.timeout(std::time::Duration::from_millis(100), async {
                 exec.sleep(std::time::Duration::from_millis(200)).await
             }).await;
@@ -41,8 +41,8 @@ pub(crate) mod common_tests {
     }
 
     pub fn common_test_interval(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
         manager.start(async move{
-            let exec = helper.get_executor();
             let sw = Stopwatch::new_tolerant_millis(2);
             let delay = 10;
             let mut interval = exec.interval(std::time::Duration::from_millis(delay));
