@@ -1,6 +1,6 @@
 [package]
 name = "agnostic_async_executor"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Pablo Guerrero <siriux@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

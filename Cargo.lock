@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "agnostic_async_executor"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "agnostic_async_executor",
  "async-channel",
