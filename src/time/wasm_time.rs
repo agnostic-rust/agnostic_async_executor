@@ -14,7 +14,7 @@ export function js_now() {
     return performance.now();
 }"#)]
 extern "C" {
-    pub fn js_now() -> f64;
+    pub(crate) fn js_now() -> f64;
 }
 
 pub(crate) fn wasm_now() -> u64 {
@@ -28,7 +28,7 @@ export function js_delay(delay) {
     });
 }"#)]
 extern "C" {
-    fn js_delay(delay: f64) -> Promise;
+    pub(crate) fn js_delay(delay: f64) -> Promise;
 }
 
 pub(crate) struct WasmSleepFuture {

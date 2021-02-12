@@ -1,11 +1,15 @@
 [package]
 name = "agnostic_async_executor"
-version = "0.1.0"
-authors = ["Pablo Guerrero", "David Craven <david@craven.ch>"]
+version = "0.2.0"
+authors = ["Pablo Guerrero <siriux@gmail.com>", "David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Agnostic Rust Async Executor"
 repository = "https://github.com/siriux/agnostic_async_executor"
+
+# [workspace]
+# members = ["crates/agnostic_async_actors"]
+# exclude = []
 
 [features]
 async_std_executor = ["async-std"]
@@ -45,8 +49,8 @@ concurrent-queue = { version = "^1.2", optional = true }
 # This might change when this is fixed https://github.com/rustwasm/wasm-pack/issues/698
 
 [dev-dependencies]
-# agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time"] }
+agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time"] }
 
 [target.wasm32-unknown-unknown.dev-dependencies]
-agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time"] }
-wasm-bindgen-test = "^0.3"
+# agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time"] }
+# wasm-bindgen-test = "^0.3"

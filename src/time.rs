@@ -1,5 +1,5 @@
-//! Time
-//! TODO Doc
+//! A set of time utilities useful when working with async code that work with every executor, including wasm.
+//! When possible, they are implemented using the executor provided primitives to make it as performance and accurate as possible.
 
 #![ cfg(feature = "time") ]
 
@@ -14,7 +14,12 @@ mod wasm_time;
 #[cfg(feature = "wasm_bindgen_executor")]
 pub use wasm_time::*;
 
-/// TODO Doc
+
+fn to_millis(duration: Duration) -> u64 {
+    (duration.as_secs_f64() * 1000.0) as u64
+}
+
+/// Error returned when a future times out.
 #[derive(Debug, Clone, Copy)]
 pub struct TimedOut;
 enum IntervalInner {
@@ -30,11 +35,11 @@ enum IntervalInner {
     WasmBindgen(WasmInterval)
 }
 
-/// TODO Doc
+/// An interval be used to retrieve a sequence of futures, each one expiring after a given interval from the previous one.
 pub struct Interval(IntervalInner);
 
 impl Interval {
-    /// TODO Doc
+    /// Returns the future for the next interval in the sequence.
     pub async fn next(&mut self) {
         match &mut self.0 {
             #[cfg(feature = "tokio_executor")]
@@ -65,11 +70,9 @@ impl Interval {
     }
 }
 
-// TODO Implement Stream for interval when is in std: https://github.com/rust-lang/rust/issues/79024
-
 impl AgnosticExecutor {
 
-    /// TODO Doc
+    /// Returns a future that sleeps for a duration.
     pub async fn sleep(&self, duration: Duration) {
         match &self.inner {
             #[cfg(feature = "tokio_executor")]
@@ -95,7 +98,12 @@ impl AgnosticExecutor {
         }        
     }
 
-    /// TODO Doc
+    /// Returns a future that sleeps for a duration in milliseconds.
+    pub async fn sleep_millis(&self, duration: u64) {
+        self.sleep(Duration::from_millis(duration)).await;
+    }
+
+    /// Wraps a future in a timeout that expires after a duration if the provided future didn't finish.
     pub async fn timeout<T: futures::Future>(&self, duration: Duration, future: T) -> Result<T::Output, TimedOut> {
         match &self.inner {
             #[cfg(feature = "tokio_executor")]
@@ -127,7 +135,12 @@ impl AgnosticExecutor {
         }        
     }
 
-    /// TODO Doc
+    /// Wraps a future in a timeout that expires after a duration in milliseconds if the provided future didn't finish.
+    pub async fn timeout_millis<T: futures::Future>(&self, duration: u64, future: T) -> Result<T::Output, TimedOut> {
+        self.timeout(Duration::from_millis(duration), future).await
+    }
+    
+    /// Creates a new Interval for a given duration.
     pub fn interval(&self, duration: Duration) -> Interval {
         match &self.inner {
             #[cfg(feature = "tokio_executor")]
@@ -159,11 +172,14 @@ impl AgnosticExecutor {
         }        
     }
 
-    // TODO interval_millis, sleep_millis, ... move the to_millis function !
+    /// Creates a new Interval for a given duration in milliseconds.
+    pub fn interval_millis(&self, duration: u64) -> Interval {
+        self.interval(Duration::from_millis(duration))
+    }
 
 }
 
-/// TODO Doc
+/// A Stopwatch can be used to measure time in a generic way that works even on wasm.
 pub struct Stopwatch {
     #[cfg(not(feature = "wasm_bindgen_executor"))]
     start: std::time::Instant,
@@ -172,22 +188,18 @@ pub struct Stopwatch {
     tolerance: u64
 }
 
-fn to_millis(duration: Duration) -> u64 {
-    (duration.as_secs_f64() * 1000.0) as u64
-}
-
 impl Stopwatch {
-    /// TODO Doc
+    /// Creates a new Stopwatch instance. You can have multiple independent instances.
     pub fn new() -> Self {
         Stopwatch::new_tolerant_millis(0)
     }
 
-    /// TODO Doc
+    /// Creates a new Stopwatch instance with a given tolerance for the has_elapsed* checks.
     pub fn new_tolerant(tolerance: Duration) -> Self {
         Stopwatch::new_tolerant_millis(to_millis(tolerance))
     }
 
-    /// TODO Doc
+    /// Creates a new Stopwatch instance with a given tolerance in milliseconds for the has_elapsed* checks.
     pub fn new_tolerant_millis(tolerance: u64) -> Self {
         Stopwatch {
             #[cfg(not(feature = "wasm_bindgen_executor"))]
@@ -198,17 +210,17 @@ impl Stopwatch {
         }  
     }
 
-    /// TODO Doc
+    /// Sets the tolerance for the has_elapsed* checks.
     pub fn set_tolerance(&mut self, tolerance: Duration) {
         self.tolerance = to_millis(tolerance);
     }
 
-    /// TODO Doc
+    /// Sets the tolerance in milliseconds for the has_elapsed* checks.
     pub fn set_tolerance_millis(&mut self, tolerance: u64) {
         self.tolerance = tolerance;
     }
 
-    /// TODO Doc
+    /// Returns the duration since creation or last reset.
     pub fn elapsed(&self) -> Duration {
         #[cfg(not(feature = "wasm_bindgen_executor"))]
         return self.start.elapsed();
@@ -216,7 +228,7 @@ impl Stopwatch {
         return Duration::from_millis(wasm_now() - self.start);
     }
 
-    /// TODO Doc
+    /// Returns the duration in milliseconds since creation or last reset.
     pub fn elapsed_millis(&self) -> u64 {
         #[cfg(not(feature = "wasm_bindgen_executor"))]
         return to_millis(self.start.elapsed());
@@ -224,17 +236,17 @@ impl Stopwatch {
         return wasm_now() - self.start;
     }
 
-    /// TODO Doc
+    /// Checks if a duration has elapsed since creation or last reset, with a given tolerance configured on this instance.
     pub fn has_elapsed(&self, duration: Duration) -> bool {
         self.has_elapsed_millis(to_millis(duration))
     }
 
-    /// TODO Doc
+    /// Checks if a duration in milliseconds has elapsed since creation or last reset, with a given tolerance configured on this instance.
     pub fn has_elapsed_millis(&self, duration: u64) -> bool {
         self.elapsed_millis() + self.tolerance >= duration
     }
 
-    /// TODO Doc
+    /// Resets this instance so that the elapsed time is measured from this instant.
     pub fn reset(&mut self) {
         #[cfg(not(feature = "wasm_bindgen_executor"))]
         { self.start = std::time::Instant::now(); }

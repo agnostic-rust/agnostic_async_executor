@@ -33,14 +33,15 @@ pub(crate) enum ExecutorInnerHandle {
 
 use ExecutorInnerHandle::*;
 
-/// TODO Doc
+/// An executor that can spawn futures.
+/// This can be freely stored anywhere you need, cloned, and be sent to other threads.
 #[derive(Debug, Clone)]
 pub struct AgnosticExecutor {
     pub(crate) inner: ExecutorInnerHandle
 }
 
 impl AgnosticExecutor {
-    /// Spawns an asynchronous task using the underlying executor.
+    /// Spawns a future on this executor.
     pub fn spawn<F, T>(&self, future: F) -> JoinHandle<T>
     where
         F: Future<Output = T> + Send + 'static,
@@ -115,4 +116,6 @@ impl AgnosticExecutor {
 
         JoinHandle{inner}
     }
+
+    // TODO spawn_local on supported platforms
 }

@@ -1,5 +1,4 @@
-//! Test
-//! TODO Doc
+//! Agnostic executor test utilities that can be used to test your executor agnostic async code in all the available executors with minimal effort, including in wasm. 
 
 #![ cfg(feature = "test") ]
 
@@ -9,7 +8,7 @@ use concurrent_queue::ConcurrentQueue;
 
 use crate::{AgnosticExecutorManager, new_agnostic_executor};
 
-pub use super::{check, check_eq, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re re-export here for convenience
+pub use super::{check, check_eq, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re-export  it here for convenience
 
 #[derive(Debug, Clone)]
 enum TestMessage {
@@ -18,7 +17,7 @@ enum TestMessage {
 
 use TestMessage::*;
 
-/// TODO Doc
+/// A test helper instance that can be used to perform checks inside async tasks of the tests in a ways that is executor agnostic and works everywhere, even in wasm
 #[derive(Debug, Clone)]
 pub struct TestHelper {
     runtime_name: String,
@@ -47,18 +46,19 @@ impl TestHelper {
         }
     }
 
-    /// TODO Doc
+    /// Get the runtime name being used in this test
     pub fn get_runtime_name(&self) -> &str {
         &self.runtime_name
     }
 
-    /// TODO Doc
+    /// Perform a check. Usually is prefered to use the provided check*! macros to get better error messages
+    /// You should always use checks instead of asserts if you want to be sure errors are cached in all executors and situations, specially but not only in wasm. 
     pub fn check(&mut self, success: bool, msg: &str) {
         &self.test_queue.push(Check(success, msg.to_owned()));
     }
 }
 
-/// TODO Doc
+/// Define and run a native test that will be executed on all the configured executors except wasm, that needs it's own test
 #[ cfg(not(feature = "wasm_bindgen_executor")) ]
 pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
     let mut errors = Vec::new();
@@ -94,10 +94,7 @@ pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelpe
     }
 }
 
-// TODO Test helpers for specific runtime tests test_in_X other than wasm
-// TODO Extract common parts from error checking into a function
-
-/// TODO Doc
+/// Define and un a wasm test
 #[ cfg(feature = "wasm_bindgen_executor") ]
 pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
 
@@ -134,12 +131,12 @@ pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestH
     }
 }
 
-/// TODO Doc
+/// A macro to perform a check inside an agnostic executor test, this is the preferred way to check because it provides better information if the check fails.
+/// You should always use checks instead of asserts if you want to be sure errors are cached in all executors and situations, specially but not only in wasm.
+/// TODO Example
 #[macro_export]
 macro_rules! check {
     ($helper:expr, $val:expr) => {
-        // Use of `match` here is intentional because it affects the lifetimes
-        // of temporaries - https://stackoverflow.com/a/48732525/1063961
         match $val {
             tmp => {
                 let msg = format!("Failed check [{}:{}] {} // Using {} runtime", file!(), line!(), stringify!($val), $helper.get_runtime_name());
@@ -150,12 +147,11 @@ macro_rules! check {
     };
 }
 
-/// TODO Doc
+/// A check macro variant that accepts any binary check operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_op {
     ($helper:expr, $a:expr, $b:expr, $op:tt) => {
-        // Use of `match` here is intentional because it affects the lifetimes
-        // of temporaries - https://stackoverflow.com/a/48732525/1063961
         match ($a, $b) {
             (tmp_a, tmp_b) => {
                 let res = $op($a, $b);
@@ -166,7 +162,8 @@ macro_rules! check_op {
     };
 }
 
-/// TODO Doc
+/// A check macro variant that performs the a == b operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_eq {
     ($helper:expr, $a:expr, $b:expr) => {
@@ -174,7 +171,8 @@ macro_rules! check_eq {
     }
 }
 
-/// TODO Doc
+/// A check macro variant that performs the a > b operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_gt {
     ($helper:expr, $a:expr, $b:expr) => {
@@ -182,7 +180,8 @@ macro_rules! check_gt {
     }
 }
 
-/// TODO Doc
+/// A check macro variant that performs the a < b operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_lt {
     ($helper:expr, $a:expr, $b:expr) => {
@@ -190,7 +189,8 @@ macro_rules! check_lt {
     }
 }
 
-/// TODO Doc
+/// A check macro variant that performs the a >= b operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_ge {
     ($helper:expr, $a:expr, $b:expr) => {
@@ -198,7 +198,8 @@ macro_rules! check_ge {
     }
 }
 
-/// TODO Doc
+/// A check macro variant that performs the a <= b operation while providing useful information
+/// TODO Example
 #[macro_export]
 macro_rules! check_le {
     ($helper:expr, $a:expr, $b:expr) => {

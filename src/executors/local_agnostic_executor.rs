@@ -16,7 +16,7 @@ pub(crate) enum LocalExecutorInnerRuntime {
     WasmBindgenRuntime
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum LocalExecutorInnerHandle {
     #[cfg(feature = "tokio_executor")]
     TokioHandle,
@@ -33,8 +33,10 @@ pub(crate) enum LocalExecutorInnerHandle {
 use LocalExecutorInnerHandle::*;
 use futures::task::LocalSpawnExt;
 
-/// TODO Doc
-#[derive(Debug)]
+/// An executor capable of spawning futures that are not [Send].
+/// It doesn't implement [Send] itself.
+/// [Send]: https://doc.rust-lang.org/std/marker/trait.Send.html
+#[derive(Debug, Clone)]
 pub struct LocalAgnosticExecutor {
     pub(crate) inner: LocalExecutorInnerHandle
 }
@@ -42,9 +44,7 @@ pub struct LocalAgnosticExecutor {
 impl LocalAgnosticExecutor {
 
     /// Spawns a future that doesn't implement [Send].
-    ///
     /// The spawned future will be executed on the same thread that called `spawn_local`.
-    ///
     /// [Send]: https://doc.rust-lang.org/std/marker/trait.Send.html
     pub fn spawn_local<F, T>(&self, future: F) -> JoinHandle<T>
     where
