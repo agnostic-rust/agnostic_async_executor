@@ -1,11 +1,14 @@
 [package]
 name = "agnostic_async_executor"
-version = "0.2.0"
+version = "0.2.0.1"
 authors = ["Pablo Guerrero <siriux@gmail.com>", "David Craven <david@craven.ch>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
 description = "Agnostic Rust Async Executor"
 repository = "https://github.com/siriux/agnostic_async_executor"
+documentation = "https://docs.rs/agnostic_async_executor"
+categories = ["asynchronous", "wasm"]
+keywords = ["executor", "async", "agnostic", "wasm"]
 
 # [workspace]
 # members = ["crates/agnostic_async_actors"]
