@@ -1,4 +1,3 @@
-//! # Agnostic Async Executor
 //! The agnostic_async_executor crate is a rust library that helps you write async libraries and applications that are executor agnostic.
 //! 
 //! It supports the most common executors for a wide variety of use cases. Tokio and Async Std when you need power and compatibility, Smol and the Futures crate executors when you need something lightweight, and Wasm Bindgen if you need wasm support.
@@ -64,15 +63,6 @@
 //! All the implementation details are hidden and you just can use it as you would use the underlying executors. Powerful but simple.
 //!
 //! The only drawback is that you cannot implement support for new executors outside of the ones provided by library, so if you need support for a new executor you can create a pull request on github. But as we said before, in practice this is what you would do,or even had to do with the trait based alternatives.
-//!
-//! ## License
-//! This project is licensed under either of
-//!
-//! - Apache License, Version 2.0, ([link](https://www.apache.org/licenses/LICENSE-2.0))
-//! - MIT license ([link](https://opensource.org/licenses/MIT))
-//! at your option.
-//!
-//! This project was originally forked from [async-spawner](https://github.com/dvc94ch/async-spawner) from David Craven <david@craven.ch> but it has been redesigned to be a completely different library. Still, it's possible that some of the original code remains in some form. 
 //!
 
 #![deny(missing_docs)]
