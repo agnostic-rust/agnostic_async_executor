@@ -20,6 +20,17 @@ mod wasm_common_tests {
         test_in_wasm(common_tests::common_test_spawn_blocking).await;
     }
 
+    
+    #[wasm_bindgen_test]
+    async fn test_spawn_global() {
+        test_in_wasm(common_tests::common_test_spawn_global).await;
+    }
+
+    #[wasm_bindgen_test]
+    async fn test_spawn_blocking_global() {
+        test_in_wasm(common_tests::common_test_spawn_blocking_global).await;
+    }
+
     #[wasm_bindgen_test]
     async fn test_sleep() {
         test_in_wasm(common_tests::common_test_sleep).await;

@@ -70,9 +70,12 @@
 mod executors;
 
 pub use executors::{
-    JoinHandle, AgnosticExecutor, AgnosticExecutorBuilder, AgnosticExecutorManager,
-    new_agnostic_executor, get_global_executor, spawn, spawn_blocking
+    JoinHandle, AgnosticExecutor, LocalAgnosticExecutor, AgnosticExecutorBuilder, AgnosticExecutorManager,
+    new_agnostic_executor, check_global_executor, get_global_executor, spawn, spawn_blocking
 };
+
+#[cfg(feature = "block_on")]
+pub use executors::block_on;
 
 #[ cfg(feature = "time") ]
 pub mod time;

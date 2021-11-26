@@ -4,6 +4,7 @@ use super::join_handle::*;
 
 #[cfg(feature = "smol_executor")]
 use std::sync::Arc;
+
 pub(crate) enum ExecutorInner {
     #[cfg(feature = "tokio_executor")]
     TokioRuntime(tokio::runtime::Runtime),
@@ -118,4 +119,35 @@ impl AgnosticExecutor {
     }
 
     // TODO spawn_local on supported platforms
+
+    /// Runs and blocks until completion on this executor.
+    /// This function shouldn't be called from inside an async call, use await instead. In some executors it might work, but at least in tokio it doesn't.
+    /// This function shouldn't be called from inside an async call, use await instead. In some executors it might work, but at least in tokio it doesn't.
+    /// To be agnostic on the supported platforms use the block_on feature. If you enable it in WASM it will panic at runtime.
+    #[cfg(feature = "block_on")]
+    pub fn block_on<F: Future>(&self, future: F) -> F::Output
+    {
+        match &self.inner {
+            #[cfg(feature = "tokio_executor")]
+            TokioHandle(handle) => {
+                handle.block_on(future)
+            },
+            #[cfg(feature = "async_std_executor")]
+            AsyncStdHandle => {
+                async_std::task::block_on(future)
+            }, 
+            #[cfg(feature = "smol_executor")]
+            SmolHandle(_) => {
+                futures_lite::future::block_on(future)
+            },
+            #[cfg(feature = "futures_executor")]
+            FuturesHandle(_) => {
+                futures::executor::block_on(future)
+            },
+            #[cfg(feature = "wasm_bindgen_executor")]
+            WasmBindgenHandle => {
+                unimplemented!(); // Not supported on WASM https://github.com/rustwasm/wasm-bindgen/issues/2111
+            }
+        }
+    }
 }

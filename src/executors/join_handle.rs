@@ -30,7 +30,7 @@ impl<T: 'static> Future for JoinHandle<T> {
             JoinHandleInner::<T>::Tokio(handle) => {
                 match futures::ready!(Pin::new(handle).poll(cx)) {
                     Ok(res) => Poll::Ready(res),
-                    Err(_) => panic!()
+                    Err(e) => panic!("Tokio JoinHandle error: {}", e)
                 }
             },
             #[cfg(feature = "async_std_executor")]

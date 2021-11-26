@@ -21,6 +21,41 @@ pub(crate) mod common_tests {
         });
     }
 
+    #[cfg(feature = "block_on")]
+    pub fn common_test_block_on(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();        
+        let res = exec.block_on(async {
+            1i32
+        });
+        check!(helper, res == 1);
+    }
+
+    pub fn common_test_spawn_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        manager.start(async move{
+            let res = agnostic_async_executor::spawn(async {
+                1i32
+            }).await;
+            check!(helper, res == 1);
+        });
+    }
+
+    pub fn common_test_spawn_blocking_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        manager.start(async move{
+            let res = agnostic_async_executor::spawn_blocking(|| {
+                1i32
+            }).await;
+            check!(helper, res == 1);
+        });
+    }
+
+    #[cfg(feature = "block_on")]
+    pub fn common_test_block_on_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {      
+        let res = agnostic_async_executor::block_on(async {
+            1i32
+        });
+        check!(helper, res == 1);
+    }
+
     pub fn common_test_sleep(manager: AgnosticExecutorManager, mut helper: TestHelper) {
         let exec = manager.get_executor();
         manager.start(async move{

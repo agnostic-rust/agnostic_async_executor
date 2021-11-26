@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use concurrent_queue::ConcurrentQueue;
 
-use crate::{AgnosticExecutorManager, new_agnostic_executor};
+use crate::{AgnosticExecutorManager, new_agnostic_executor, check_global_executor};
 
 pub use super::{check, check_eq, check_op, check_gt, check_lt, check_ge, check_le}; // Because it's exported at the crate level, re-export  it here for convenience
 
@@ -60,31 +60,36 @@ impl TestHelper {
 
 /// Define and run a native test that will be executed on all the configured executors except wasm, that needs it's own test
 #[ cfg(not(feature = "wasm_bindgen_executor")) ]
-pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
+pub fn test_in_native<F>(global: bool, body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
     let mut errors = Vec::new();
+
+    // As we can only have one global executor, we only test tokio that is the one that has more restrictions and it's the first
 
     #[ cfg(feature = "tokio_executor") ]
     {
         let manager = new_agnostic_executor().use_tokio_executor();
+        if !check_global_executor() { manager.set_as_global() }
         TestHelper::test_wrapper_native("Tokio".to_owned(), manager, &mut errors, &body);
     }
 
-    #[ cfg(feature = "async_std_executor") ]
-    {
-        let manager = new_agnostic_executor().use_async_std_executor();
-        TestHelper::test_wrapper_native("AsyncStd".to_owned(), manager, &mut errors, &body);
-    }
+    if !global {
+        #[ cfg(feature = "async_std_executor") ]
+        {
+            let manager = new_agnostic_executor().use_async_std_executor();
+            TestHelper::test_wrapper_native("AsyncStd".to_owned(), manager, &mut errors, &body);
+        }
 
-    #[ cfg(feature = "smol_executor") ]
-    {
-        let manager = new_agnostic_executor().use_smol_executor(None);
-        TestHelper::test_wrapper_native("Smol".to_owned(), manager, &mut errors, &body);
-    }
+        #[ cfg(feature = "smol_executor") ]
+        {
+            let manager = new_agnostic_executor().use_smol_executor(None);
+            TestHelper::test_wrapper_native("Smol".to_owned(), manager, &mut errors, &body);
+        }
 
-    #[ cfg(feature = "futures_executor") ]
-    {
-        let manager = new_agnostic_executor().use_futures_executor();
-        TestHelper::test_wrapper_native("Futures".to_owned(), manager, &mut errors, &body);
+        #[ cfg(feature = "futures_executor") ]
+        {
+            let manager = new_agnostic_executor().use_futures_executor();
+            TestHelper::test_wrapper_native("Futures".to_owned(), manager, &mut errors, &body);
+        }
     }
 
     let without_errors = errors.is_empty();
@@ -99,6 +104,9 @@ pub fn test_in_native<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelpe
 pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestHelper) {
 
     let mut manager = new_agnostic_executor().use_wasm_bindgen_executor();
+
+    if !check_global_executor() { manager.set_as_global() }
+
     let test_queue = Arc::new(ConcurrentQueue::unbounded());
 
     let (sender, receiver) = futures::channel::oneshot::channel::<i32>();

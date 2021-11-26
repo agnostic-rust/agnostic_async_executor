@@ -1,9 +1,7 @@
-- Provide a dummy entry for the JoinHandle enum so that when no other features are enabled the type T is used, this will be disabled in any real use case
 - Add spawn_local support directly on the main executor under a feature flag for the executors that can support it (async_std [also with tokio support], wasm, futures ST, tokio ST)
-    - spawn_local with multiple executors enable might panic at runtime if used on an unsupported executor
+    - spawn_local with multiple executors enable might panic at runtime if used on an unsupported executor (see the block_on feature)
     - Libraries can require the spawn_local feature and be agnostic over a smaller set of executors
     - Support spawn_local in smol using the ideas from async_global_executor
-- Add a global block_on function that can be used to inter-operate with sync code
 - Support other executors and variants
     - Support async_global_executor (including spawn_local)
     - Support tokio single threaded with spawn_local support
@@ -12,8 +10,10 @@
 - Implement Stream for Interval (under a feature until is in std: https://github.com/rust-lang/rust/issues/79024)
 - Get our own macros for main, test, benchmark, ... or recommend using the upstream ones
 - Test helpers for specific runtime tests test_in_X other than wasm, also for the native_spawn_local subset to be able to test it (extract common code)
-- Write documentation
-- Write example crates
-- Integrate global tests into common tests so that they can run in wasm
+- Provide a dummy entry for the JoinHandle enum so that when no other features are enabled the type T is used, this will be disabled in any real use case
+- Improve documentation
+    - Add empty lines to create new paragraphs on the documentation
+    - Write example crates
+    - Try to hide macros from the root module, if it's even possible
 - Use this idea, and maybe make all tests async, to unify all the tests, wasm and native: https://github.com/wasm-rs/async-executor/blob/df48775b37bf62fbc1036a856151b526a3f700ab/src/single_threaded.rs#L288 
 - Write more tests

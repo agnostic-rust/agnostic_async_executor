@@ -216,6 +216,11 @@ pub fn new_agnostic_executor() -> AgnosticExecutorBuilder {
     AgnosticExecutorBuilder {}
 }
 
+/// Checks if there is a global executor already set
+pub fn check_global_executor() -> bool {
+    GLOBAL_EXECUTOR.get().is_some()
+}
+
 /// Gets the executor set as the global executor.
 /// It might panic if no executor is set.
 pub fn get_global_executor() -> &'static AgnosticExecutor {
@@ -238,4 +243,13 @@ where
     T: Send + 'static,
 {
     get_global_executor().spawn_blocking(task)
+}
+
+/// Runs and blocks until completion on the global executor.
+/// This function can be used to bridge between sync and async code
+/// This function shouldn't be called from inside an async call, use await instead. In some executors it might work, but at least in tokio it doesn't.
+/// To be agnostic on the supported platforms use the block_on feature. If you enable it in WASM it will panic at runtime.
+#[cfg(feature = "block_on")]
+pub fn block_on<F: Future>(future: F) -> F::Output {
+    get_global_executor().block_on(future)
 }
