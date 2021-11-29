@@ -20,17 +20,6 @@ mod wasm_common_tests {
         test_in_wasm(common_tests::common_test_spawn_blocking).await;
     }
 
-    
-    #[wasm_bindgen_test]
-    async fn test_spawn_global() {
-        test_in_wasm(common_tests::common_test_spawn_global).await;
-    }
-
-    #[wasm_bindgen_test]
-    async fn test_spawn_blocking_global() {
-        test_in_wasm(common_tests::common_test_spawn_blocking_global).await;
-    }
-
     #[wasm_bindgen_test]
     async fn test_sleep() {
         test_in_wasm(common_tests::common_test_sleep).await;
@@ -49,6 +38,21 @@ mod wasm_common_tests {
     #[wasm_bindgen_test]
     async fn test_local() {
         test_in_wasm(common_tests::common_test_local).await;
+    }
+
+    #[wasm_bindgen_test]
+    async fn test_cancel_handle() {
+        test_in_wasm(common_tests::common_test_cancel_handle).await;
+    }
+    
+    #[wasm_bindgen_test]
+    async fn test_drop_handle() {
+        test_in_wasm(common_tests::common_test_drop_handle).await;
+    }
+
+    #[wasm_bindgen_test]
+    async fn test_global() {
+        test_in_wasm(common_tests::common_test_global).await;
     }
 
 }

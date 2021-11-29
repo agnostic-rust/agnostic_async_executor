@@ -15,5 +15,9 @@
     - Add empty lines to create new paragraphs on the documentation
     - Write example crates
     - Try to hide macros from the root module, if it's even possible
-- Use this idea, and maybe make all tests async, to unify all the tests, wasm and native: https://github.com/wasm-rs/async-executor/blob/df48775b37bf62fbc1036a856151b526a3f700ab/src/single_threaded.rs#L288 
+- Use this idea, and maybe make all tests async, to unify all the tests, wasm and native:
+    - https://github.com/wasm-rs/async-executor/blob/df48775b37bf62fbc1036a856151b526a3f700ab/src/single_threaded.rs#L288
+    - Not clear how to do it !!!! we cannot convert native tests to async, because async tests are not supported
+    - But we cannot remove async from wasm as we don't have blocking calls (in particular manager.start is not blocking)
 - Write more tests
+- Allow  to clone the JoinHandle based on ideas from https://docs.rs/futures/0.3.18/futures/future/trait.FutureExt.html#method.shared

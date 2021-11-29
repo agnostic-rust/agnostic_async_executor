@@ -1,5 +1,6 @@
 pub(crate) mod common_tests {
     use agnostic_async_executor::{AgnosticExecutorManager, test::*, time::Stopwatch};
+    use futures::channel::oneshot;
 
     pub fn common_test_spawn(manager: AgnosticExecutorManager, mut helper: TestHelper) {
         let exec = manager.get_executor();
@@ -25,32 +26,6 @@ pub(crate) mod common_tests {
     pub fn common_test_block_on(manager: AgnosticExecutorManager, mut helper: TestHelper) {
         let exec = manager.get_executor();        
         let res = exec.block_on(async {
-            1i32
-        });
-        check!(helper, res == 1);
-    }
-
-    pub fn common_test_spawn_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {
-        manager.start(async move{
-            let res = agnostic_async_executor::spawn(async {
-                1i32
-            }).await;
-            check!(helper, res == 1);
-        });
-    }
-
-    pub fn common_test_spawn_blocking_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {
-        manager.start(async move{
-            let res = agnostic_async_executor::spawn_blocking(|| {
-                1i32
-            }).await;
-            check!(helper, res == 1);
-        });
-    }
-
-    #[cfg(feature = "block_on")]
-    pub fn common_test_block_on_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {      
-        let res = agnostic_async_executor::block_on(async {
             1i32
         });
         check!(helper, res == 1);
@@ -107,6 +82,79 @@ pub(crate) mod common_tests {
             }).await;
 
             check!(helper, res == 3);
+        });
+    }
+
+    pub fn common_test_cancel_handle(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
+        manager.start(async move{
+
+            let (c_tx, c_rx) = oneshot::channel();
+
+            let exec2 = exec.clone();
+
+            let res = exec.spawn(async move {
+                exec2.sleep(std::time::Duration::from_millis(200)).await; // Give some time for the cancellation to occur
+                c_tx.send(1i32).unwrap();
+            });
+
+            res.cancel().await;
+
+            let channel_res = c_rx.await;
+
+            check!(helper, channel_res.is_err());
+        });
+    }
+
+    pub fn common_test_drop_handle(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        let exec = manager.get_executor();
+        manager.start(async move{
+
+            let (c_tx, c_rx) = oneshot::channel();
+
+            let exec2 = exec.clone();
+
+            let res = exec.spawn(async move {
+                exec2.sleep(std::time::Duration::from_millis(200)).await; // Give some time for the cancellation to occur if there is any bug
+                c_tx.send(1i32).unwrap();
+            });
+
+            drop(res);
+
+            let channel_res = c_rx.await;
+
+            check!(helper, channel_res.is_ok());
+
+            if let Ok(channel_res) = channel_res {
+                check!(helper, channel_res == 1);
+            }
+        });
+    }
+
+    pub fn common_test_global(manager: AgnosticExecutorManager, mut helper: TestHelper) {
+        // We test global on a single test, because otherwise we would get mismatching global executors, as they can only be set once
+
+        // Block On
+        #[cfg(feature = "block_on")]
+        {
+            let res = agnostic_async_executor::block_on(async {
+                1i32
+            });
+            check!(helper, res == 1);
+        } 
+
+        manager.start(async move{
+            // Spawn
+            let res = agnostic_async_executor::spawn(async {
+                1i32
+            }).await;
+            check!(helper, res == 1);
+
+            // Spawn Blocking
+            let res = agnostic_async_executor::spawn_blocking(|| {
+                1i32
+            }).await;
+            check!(helper, res == 1);
         });
     }
 }

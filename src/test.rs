@@ -54,7 +54,7 @@ impl TestHelper {
     /// Perform a check. Usually is prefered to use the provided check*! macros to get better error messages
     /// You should always use checks instead of asserts if you want to be sure errors are cached in all executors and situations, specially but not only in wasm. 
     pub fn check(&mut self, success: bool, msg: &str) {
-        &self.test_queue.push(Check(success, msg.to_owned()));
+        let _ = &self.test_queue.push(Check(success, msg.to_owned()));
     }
 }
 
@@ -65,14 +65,19 @@ pub fn test_in_native<F>(global: bool, body: F) where F: Fn(AgnosticExecutorMana
 
     // As we can only have one global executor, we only test tokio that is the one that has more restrictions and it's the first
 
-    #[ cfg(feature = "tokio_executor") ]
-    {
-        let manager = new_agnostic_executor().use_tokio_executor();
-        if !check_global_executor() { manager.set_as_global() }
-        TestHelper::test_wrapper_native("Tokio".to_owned(), manager, &mut errors, &body);
-    }
-
-    if !global {
+    if global {
+        #[ cfg(feature = "tokio_executor") ]
+        {
+            let manager = new_agnostic_executor().use_tokio_executor();
+            if !check_global_executor() { manager.set_as_global() }
+            TestHelper::test_wrapper_native("Tokio".to_owned(), manager, &mut errors, &body);
+        }
+    } else {
+        #[ cfg(feature = "tokio_executor") ]
+        {
+            let manager = new_agnostic_executor().use_tokio_executor();
+            TestHelper::test_wrapper_native("Tokio".to_owned(), manager, &mut errors, &body);
+        }
         #[ cfg(feature = "async_std_executor") ]
         {
             let manager = new_agnostic_executor().use_async_std_executor();

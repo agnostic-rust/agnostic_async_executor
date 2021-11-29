@@ -51,29 +51,30 @@ impl AgnosticExecutor {
         let inner = match &self.inner {
             #[cfg(feature = "tokio_executor")]
             TokioHandle(handle) => {
-                JoinHandleInner::<T>::Tokio(handle.spawn(future))
+                JoinHandleInner::<T>::Tokio(Some(handle.spawn(future)))
             },
             #[cfg(feature = "async_std_executor")]
             AsyncStdHandle => {
-                JoinHandleInner::<T>::AsyncStd(async_std::task::spawn(future))
+                JoinHandleInner::<T>::AsyncStd(Some(async_std::task::spawn(future)))
             }, 
             #[cfg(feature = "smol_executor")]
             SmolHandle(executor) => {
-                JoinHandleInner::<T>::Smol(executor.spawn(future))
+                JoinHandleInner::<T>::Smol(Some(executor.spawn(future)))
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(executor) => {
+                // TODO See if we can use spawn_with_handle, but maybe not a good idea if we need to introduce extra dependencies/features: https://docs.rs/futures/0.3.18/futures/task/trait.SpawnExt.html
                 use futures::future::FutureExt;
                 let (future, handle) = future.remote_handle();
                 executor.spawn_ok(future);
-                JoinHandleInner::<T>::RemoteHandle(handle)
+                JoinHandleInner::<T>::RemoteHandle(Some(handle))
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
                 use futures::future::FutureExt;
                 let (future, handle) = future.remote_handle();
                 wasm_bindgen_futures::spawn_local(future);
-                JoinHandleInner::<T>::RemoteHandle(handle)
+                JoinHandleInner::<T>::RemoteHandle(Some(handle))
             }
         };
 
@@ -89,29 +90,29 @@ impl AgnosticExecutor {
         let inner = match &self.inner {
             #[cfg(feature = "tokio_executor")]
             TokioHandle(handle) => {
-                JoinHandleInner::<T>::Tokio(handle.spawn_blocking(task))
+                JoinHandleInner::<T>::Tokio(Some(handle.spawn_blocking(task)))
             },
             #[cfg(feature = "async_std_executor")]
             AsyncStdHandle => {
-                JoinHandleInner::<T>::AsyncStd(async_std::task::spawn_blocking(task))
+                JoinHandleInner::<T>::AsyncStd(Some(async_std::task::spawn_blocking(task)))
             },
             #[cfg(feature = "smol_executor")]
             SmolHandle(executor) => {
-                JoinHandleInner::<T>::Smol(executor.spawn(blocking::unblock( || task() )))
+                JoinHandleInner::<T>::Smol(Some(executor.spawn(blocking::unblock( || task() ))))
             },
             #[cfg(feature = "futures_executor")]
             FuturesHandle(executor) => {
                 use futures::future::FutureExt;
                 let (future, handle) = (async { task()}).remote_handle();
                 executor.spawn_ok(future);
-                JoinHandleInner::<T>::RemoteHandle(handle)
+                JoinHandleInner::<T>::RemoteHandle(Some(handle))
             },
             #[cfg(feature = "wasm_bindgen_executor")]
             WasmBindgenHandle => {
                 use futures::future::FutureExt;
                 let (future, handle) = (async { task() }).remote_handle();
                 wasm_bindgen_futures::spawn_local(future);
-                JoinHandleInner::<T>::RemoteHandle(handle)
+                JoinHandleInner::<T>::RemoteHandle(Some(handle))
             }
         };
 
