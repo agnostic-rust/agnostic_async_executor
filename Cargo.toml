@@ -2,7 +2,7 @@
 name = "agnostic_async_executor"
 version = "0.2.2"
 authors = ["Pablo Guerrero <siriux@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Agnostic Rust Async Executor"
 repository = "https://github.com/siriux/agnostic_async_executor"

@@ -1,3 +1,9 @@
+- Add support fo IO with the async-net and  async-fs crates from smol (also see the async-compat and blocking crates async-lock)
+    - Smol seems to be a great set of libs we can just re-export under some features (use compatible versions with smol executor and async std)
+    - Think about what can be done in wasm
+    - This doesn't use the underlying libraries in tokio. Maybe have a minimal set of io (under a minimal-io feature) that uses async-compat, is it worth it to avoid the extra dependencies?.
+    - Users can always 
+- Give access to the underlying executor in case we need some custom features
 - Add spawn_local support directly on the main executor under a feature flag for the executors that can support it (async_std [also with tokio support], wasm, futures ST, tokio ST)
     - spawn_local with multiple executors enable might panic at runtime if used on an unsupported executor (see the block_on feature)
     - Libraries can require the spawn_local feature and be agnostic over a smaller set of executors
@@ -21,3 +27,22 @@
     - But we cannot remove async from wasm as we don't have blocking calls (in particular manager.start is not blocking)
 - Write more tests
 - Allow  to clone the JoinHandle based on ideas from https://docs.rs/futures/0.3.18/futures/future/trait.FutureExt.html#method.shared
+- Think if is possible to have access to the current executor without needed to pass it along
+- Replace oneshot channels with https://github.com/irrustible/async-oneshot because it's faster than the one from futures
+- Include general useful utils for futures: select, ... something based on this ideas (https://crates.io/crates/async_nursery), ... 
+    - Implement and reexport in agnostik_async_utils (see the TODO there), or maybe directly in this crate
+    -  When done, review all the code to use our own utils when possible
+- Allow to get an independent cancel handle. 
+- Support scoped async tasks that block on the scope, based on this idea:
+    - https://github.com/rmanoka/async-scoped/blob/master/src/scoped.rs (simple to migrate implementation to this library, only allow the safe blocking, add disclaimer about recursion in async-std and more)
+    - Presentation and safety discussion: https://www.reddit.com/r/rust/comments/ee3vsu/asyncscoped_spawn_non_static_futures_with_asyncstd/
+    - The implementation is based on this, scoped should be under a feature to avoid extra dependencies: https://docs.rs/futures/0.3.18/futures/stream/struct.FuturesUnordered.html
+    - If we just need to spawn a single task from sync code, maybe this could be added directly on block_on, but inside the async we cannot spawn any new tasks (as we would need the full implementation)
+    - In this implementation the scope is send & sync (see docs), but  not clone  and requires &mut self for spawning. This has limitations.
+    - Other ideas
+        - https://github.com/tokio-rs/tokio/issues/1879 (closed for not finding a ood solution)
+        - https://github.com/withoutboats/juliex/issues/19 (old comments about async-scoped)
+        - https://github.com/rustasync/runtime/issues/55 (old comments about async-scoped)
+    - Think if this is really needed, or if there are better alternatives. Because it's not perfect at all !!!!
+- Add support for spawning long running tasks in a different executor/threadpool (see https://lib.rs/crates/futures-cputask for the idea, but we should use our own implementation)
+    - See the blocking crate from smol
