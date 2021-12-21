@@ -26,6 +26,7 @@ pub struct TestHelper {
 
 impl TestHelper {
     
+    #[ cfg(not(feature = "wasm_bindgen_executor")) ]
     fn test_wrapper_native<F>(runtime_name: String, manager: AgnosticExecutorManager, errors: &mut Vec<String>, body: &F) where F: Fn(AgnosticExecutorManager, TestHelper) {
         let test_queue = Arc::new(ConcurrentQueue::unbounded());
         let helper = TestHelper {runtime_name, test_queue: test_queue.clone()};
@@ -114,9 +115,9 @@ pub async fn test_in_wasm<F>(body: F) where F: Fn(AgnosticExecutorManager, TestH
 
     let test_queue = Arc::new(ConcurrentQueue::unbounded());
 
-    let (sender, receiver) = futures::channel::oneshot::channel::<i32>();
+    let (mut sender, receiver) = async_oneshot::oneshot::<i32>();
 
-    manager.on_finish(|| { sender.send(1).unwrap();  } );
+    manager.on_finish(move || { sender.send(1).unwrap();  } );
 
     let helper = TestHelper {runtime_name: "WasmBindgen".to_owned(), test_queue: test_queue.clone()};
 

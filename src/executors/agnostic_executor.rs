@@ -104,7 +104,7 @@ impl AgnosticExecutor {
             FuturesHandle(executor) => {
                 use futures::future::FutureExt;
                 let (future, handle) = (async { task()}).remote_handle();
-                executor.spawn_ok(future);
+                executor.spawn_ok(future); // TODO Maybe use blocking::unblock to make it use a threadpool instead of blocking the main one
                 JoinHandleInner::<T>::RemoteHandle(Some(handle))
             },
             #[cfg(feature = "wasm_bindgen_executor")]

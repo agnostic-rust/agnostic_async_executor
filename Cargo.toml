@@ -23,7 +23,8 @@ smol_executor_with_time = ["smol_executor", "time", "async-io"]
 futures_executor_with_time = ["futures_executor", "time", "async-timer"]
 wasm_bindgen_executor_with_time = ["wasm_bindgen_executor", "time", "wasm-bindgen", "js-sys", "futures/async-await", "send_wrapper"]
 block_on = []
-test = ["futures", "concurrent-queue"]
+stream = ["futures-core", "async-stream"]
+test = ["async-oneshot", "concurrent-queue"]
 
 [dependencies]
 once_cell =  "^1.8.0"
@@ -43,19 +44,22 @@ wasm-bindgen = { version = "^0.2.7", optional = true }
 js-sys  = { version = "^0.3", optional = true }
 send_wrapper = { version = "^0.5", optional = true }
 concurrent-queue = { version = "^1.2", optional = true }
+async-oneshot = { version = "^0.5.0", optional = true }
+async-stream = { version = "^0.3.2", optional = true }
+futures-core = { version = "^0.3.18", optional = true }
 
 # For wasm testing comment dev-dependencies and run: wasm-pack test --firefox --headless
 # Otherwise comment wasm32 dev-dependencies and run: cargo test
 # This might change when this is fixed https://github.com/rustwasm/wasm-pack/issues/698
 
 [dev-dependencies]
-agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time", "block_on"] }
+agnostic_async_executor = { path = ".", features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time", "block_on", "stream"] }
 
-[target.wasm32-unknown-unknown.dev-dependencies]
-# agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time"] }
+# [target.wasm32-unknown-unknown.dev-dependencies]
+# agnostic_async_executor = { path = ".", features = ["test", "wasm_bindgen_executor_with_time", "stream"] }
 # wasm-bindgen-test = "^0.3"
 
 [package.metadata.docs.rs]
-features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time", "wasm_bindgen_executor_with_time", "block_on"]
+features = ["test", "async_std_executor_with_time", "tokio_executor_with_time", "smol_executor_with_time", "futures_executor_with_time", "wasm_bindgen_executor_with_time", "block_on", "stream"]
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]

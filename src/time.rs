@@ -8,6 +8,12 @@ use std::time::Duration;
 use crate::AgnosticExecutor;
 use crate::executors::ExecutorInnerHandle::*;
 
+#[cfg(feature = "stream")]
+use futures_core::stream::Stream;
+
+#[cfg(feature = "stream")]
+use async_stream::stream;
+
 #[cfg(feature = "wasm_bindgen_executor")]
 mod wasm_time;
 
@@ -68,7 +74,18 @@ impl Interval {
             }
         }
     }
+
+    #[cfg(feature = "stream")]
+    /// Creates a stream from the interval
+    pub fn stream(mut self) -> impl Stream<Item = ()> {
+        stream! {
+            loop {
+                yield self.next().await
+            }
+        }
+    }
 }
+
 
 impl AgnosticExecutor {
 

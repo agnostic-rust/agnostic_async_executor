@@ -13,7 +13,6 @@
     - Support tokio single threaded with spawn_local support
     - Support futures single threaded with spawn_local support
     - Support async_std/smol/... with tokio support (including spawn_local)
-- Implement Stream for Interval (under a feature until is in std: https://github.com/rust-lang/rust/issues/79024)
 - Get our own macros for main, test, benchmark, ... or recommend using the upstream ones
 - Test helpers for specific runtime tests test_in_X other than wasm, also for the native_spawn_local subset to be able to test it (extract common code)
 - Provide a dummy entry for the JoinHandle enum so that when no other features are enabled the type T is used, this will be disabled in any real use case
@@ -26,12 +25,9 @@
     - Not clear how to do it !!!! we cannot convert native tests to async, because async tests are not supported
     - But we cannot remove async from wasm as we don't have blocking calls (in particular manager.start is not blocking)
 - Write more tests
+    - Test interval stream
 - Allow  to clone the JoinHandle based on ideas from https://docs.rs/futures/0.3.18/futures/future/trait.FutureExt.html#method.shared
 - Think if is possible to have access to the current executor without needed to pass it along
-- Replace oneshot channels with https://github.com/irrustible/async-oneshot because it's faster than the one from futures
-- Include general useful utils for futures: select, ... something based on this ideas (https://crates.io/crates/async_nursery), ... 
-    - Implement and reexport in agnostik_async_utils (see the TODO there), or maybe directly in this crate
-    -  When done, review all the code to use our own utils when possible
 - Allow to get an independent cancel handle. 
 - Support scoped async tasks that block on the scope, based on this idea:
     - https://github.com/rmanoka/async-scoped/blob/master/src/scoped.rs (simple to migrate implementation to this library, only allow the safe blocking, add disclaimer about recursion in async-std and more)
